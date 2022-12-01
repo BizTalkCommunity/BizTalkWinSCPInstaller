@@ -11,6 +11,7 @@ SYNOPSIS
     Credits to Michael Stepensen who created the original script.
     Credits to Nicolas Blatter for testing each new release of the cumulative updates.
     Credits to Sandro Pereira for updating the script and helping improve it.
+    Credits to Niclas Öberg for updating the script for BTS 2020 CU4
     
     Supported versions of BizTalk Server and cumulative updates:
     Microsoft BizTalk Server 2016
