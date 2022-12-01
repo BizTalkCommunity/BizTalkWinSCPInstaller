@@ -37,7 +37,7 @@
   
     Microsoft BizTalk Server 2020
         CU name Build version KB number  Release day       WinSCP Version
-    CU4 3.13.844.0    5009901    August 22, 2022   WinSCP 5.19.2
+        CU4     3.13.844.0    5009901    August 22, 2022   WinSCP 5.19.2
         CU3     3.13.812.0    5007969    November 22, 2021 WinSCP 5.19.2
         CU2     3.13.785.0    5003151    April 19, 2021    WinSCP 5.17.6
         CU1     3.13.759.0    4538666    July 28, 2020     WinSCP 5.17.6
