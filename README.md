@@ -150,9 +150,8 @@ OUTPUTS
 NOTES
     
     
-        Author: Thomas Canter, Sandro Pereira, Michael Stepensen
-        Date:   December 13th, 2021
-    
+    Author: Thomas Canter, Sandro Pereira, Michael Stepensen, Niclas Öberg
+    Date:   September 20, 2022    
     -------------------------- EXAMPLE 1 --------------------------
     
     .\InstallWinSCPForBizTalk.ps1
