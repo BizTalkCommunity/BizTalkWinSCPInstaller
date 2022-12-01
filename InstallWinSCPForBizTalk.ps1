@@ -115,8 +115,8 @@
     .\InstallWinSCPForBizTalk.ps1 -ForceInstall
     This will install WinSCP even if the existing version of WinSCP is correct.
 .NOTES
-    Author: Thomas Canter, Sandro Pereira, Michael Stepensen
-    Date:   December 13th, 2021
+    Author: Thomas Canter, Sandro Pereira, Michael Stepensen, Niclas Öberg
+    Date:   September 20, 2022
 #>
 [cmdletbinding(SupportsShouldProcess)]
 #Parameters
