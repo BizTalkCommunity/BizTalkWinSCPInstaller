@@ -305,7 +305,7 @@ if ($Continue) {
             # Microsoft BizTalk Server 2020 CU3
             $bizTalkCUVer = 'CU3'
             $btsKB = $bts2020_CU3
-            $winSCPVersion = "5.17.8"
+            $winSCPVersion = "5.19.2"
             $CUFound = $true
         }
         elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2020_CU2 -BizTalkVersion $BizTalkVersion) {
