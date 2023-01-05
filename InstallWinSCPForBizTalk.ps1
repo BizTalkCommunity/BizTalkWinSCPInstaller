@@ -18,7 +18,7 @@
         CU9 FP3    3.13.357.2     5005480    September 29, 2021 WinSCP 5.19.2
         CU9        3.12.896.2     5005479    August 25, 2021    WinSCP 5.19.2
         CU8 FP3    3.13.349.2     4590075    January 6, 2021    WinSCP 5.15.9
-        CU8        3.12.880.2     4583530    December 7, 2020   WinSCP 5.15.9
+        CU8        3.12.880.2     4583530    December 7, 2020   WinSCP 5.17.8
         CU7 FP3    3.13.340.2     4536185    January 22, 2020   WinSCP 5.15.9
         CU7        3.12.859.2     4528776    January 22, 2020   WinSCP 5.15.9
         CU6 FP3    3.12.843.2     4294900    February 7, 2019   WinSCP 5.13.1
@@ -38,8 +38,8 @@
     Microsoft BizTalk Server 2020
         CU name Build version KB number  Release day       WinSCP Version
         CU4     3.13.844.0    5009901    August 22, 2022   WinSCP 5.19.2
-        CU3     3.13.812.0    5007969    November 22, 2021 WinSCP 5.19.2
-        CU2     3.13.785.0    5003151    April 19, 2021    WinSCP 5.17.6
+        CU3     3.13.812.0    5007969    November 22, 2021 WinSCP 5.17.8
+        CU2     3.13.785.0    5003151    April 19, 2021    WinSCP 5.17.8
         CU1     3.13.759.0    4538666    July 28, 2020     WinSCP 5.17.6
         RTM     3.13.717.0    NA         January 15, 2020  WinSCP 5.15.4
   
@@ -106,7 +106,7 @@
     WinSCP based on the installed version of
     Microsoft BizTalk Server, Cumulative Update and Feature Pack.
     If needed, it will download NuGet and WinSCP to install it.
-    If the current version of WinSCP is installed it will do nothing.
+    If the correct version of WinSCP is installed it will do nothing.
 .EXAMPLE
     .\InstallWinSCPForBizTalk.ps1 -nugetDownloadFolder WinSCPTemp
     This will install WinSCP using WinSCPTemp as the
@@ -163,6 +163,44 @@ function Write-Success {
 $Continue = $true;
   
 $DebugPreference = "Continue";
+#####################################################################
+# Initialize the base default versions
+# Assume BizTalk Server 2016 with no Cumulative Update installed
+# WinSCP has stored the required files for BizTalk in different
+# folders for each minor version
+# In the Nuget Archive the WinSCP files are stored in the format:
+# WinSCP + Version \ EXE Folder \ EXE File
+# Here is the example for WinSCP 5.7.7
+# WinSCP.5.7.7\tools\WinSCP.exe
+# WinSCP + Version \ EXE Folder \ EXE File
+# WinSCP.5.7.7\lib\netstandard2.0\WinSCPnet.dll
+# WinSCP + Version \ DLL Folder \ DLL File
+# WinSCP 5.7.7
+# 5.7.7
+#   EXE folder = 'content'
+#   DLL folder = 'lib'
+# 5.11.*
+#   EXE folder = 'content'
+#   DLL folder = 'lib'
+# 5.13.1
+#   EXE folder = 'tools'
+#   DLL folder = 'lib\net'
+# 5.15.*
+#   EXE folder = 'tools'
+#   DLL folder = 'lib\netstandard'
+# 5.15.9
+#   EXE folder = 'tools'
+#   DLL folder = 'lib\netstandard'
+# 5.17.6
+#   EXE folder = 'tools'
+#   DLL folder = 'lib\netstandard2.0'
+# 5.17.8
+#   EXE folder = 'tools'
+#   DLL folder = 'lib\netstandard2.0'
+# 5.19.2
+#   EXE folder = 'tools'
+#   DLL folder = 'lib\netstandard2.0'
+#####################################################################
 $winSCPVersion = "5.7.7"
 $winSCPexeFile = "WinSCP.exe";
 $winSCPdllFile = "WinSCPnet.dll";
@@ -250,16 +288,12 @@ if ($Continue) {
     if ($BizTalkVersion -eq "2020") {
         $winSCPVersion = "5.15.4"
         # Microsoft BizTalk Server 2020
-        #CU name Build version KB number Release day       WinSCP Version
-        #CU4     3.13.844.0    5009901    August 22, 2022   WinSCP 5.19.2
-        #CU3     3.13.812.0    5007969    November 22, 2021 WinSCP 5.19.2
-        #CU2     3.13.785.0    5003151    April 19, 2021    WinSCP 5.17.6
-        #CU1     3.13.759.0    4538666    July 28, 2020     WinSCP 5.17.6
-        #NonUC   3.13.717.0    NA         January 15, 2020  WinSCP 5.15.4
-        $bts2020_CU4 = "5009901";
-        $bts2020_CU3 = "5007969";
-        $bts2020_CU2 = "5003151";
-        $bts2020_CU1 = "4538666";
+                                        #CU name    Build version KB number   Release day         WinSCP Version
+        $bts2020_CU4 = "5009901";       #CU4        3.13.844.0    5009901     August 22, 2022     WinSCP 5.19.2
+        $bts2020_CU3 = "5007969";       #CU3        3.13.812.0    5007969     November 22, 2021   WinSCP 5.19.2
+        $bts2020_CU2 = "5003151";       #CU2        3.13.785.0    5003151     April 19, 2021      WinSCP 5.17.8
+        $bts2020_CU1 = "4538666";       #CU1        3.13.759.0    4538666     July 28, 2020       WinSCP 5.17.6
+                                        #NonUC      3.13.717.0    NA          January 15, 2020    WinSCP 5.15.4
         if (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2020_CU4 -BizTalkVersion $BizTalkVersion) {
             # Microsoft BizTalk Server 2020 CU4
             $bizTalkCUVer = 'CU4'
@@ -271,14 +305,14 @@ if ($Continue) {
             # Microsoft BizTalk Server 2020 CU3
             $bizTalkCUVer = 'CU3'
             $btsKB = $bts2020_CU3
-            $winSCPVersion = "5.19.2"
+            $winSCPVersion = "5.17.8"
             $CUFound = $true
         }
         elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2020_CU2 -BizTalkVersion $BizTalkVersion) {
             # Microsoft BizTalk Server 2020 CU2
             $bizTalkCUVer = 'CU2'
             $btsKB = $bts2020_CU2
-            $winSCPVersion = "5.17.6"
+            $winSCPVersion = "5.17.8"
             $CUFound = $true
         }
         elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2020_CU1 -BizTalkVersion $BizTalkVersion) {
@@ -291,26 +325,26 @@ if ($Continue) {
     }
     elseif ($BizTalkVersion -eq "2016") {
         # Microsoft BizTalk Server 2016
-        #CU name Build version  KB number  Release date       WinSCP Version
-        $bts2016_CU9_FP3 = "5005480"; #CU9 FP3    3.13.357.2     5005480    September 29, 2021 WinSCP 5.19.2
-        $bts2016_CU9 = "5005479"; #CU9        3.12.896.2     5005479    August 25, 2021    WinSCP 5.19.2
-        $bts2016_CU8_FP3 = "4590075"; #CU8 FP3    3.13.349.2     4590075    January 6, 2021    WinSCP 5.15.9
-        $bts2016_CU8 = "4583530"; #CU8        3.12.880.2     4583530    December 7, 2020   WinSCP 5.15.9
-        $bts2016_CU7_FP3 = "4536185"; #CU7 FP3    3.13.340.2     4536185    January 22, 2020   WinSCP 5.15.9
-        $bts2016_CU7 = "4528776"; #CU7        3.12.859.2     4528776    January 22, 2020   WinSCP 5.15.9
-        $bts2016_CU6_FP3 = "4294900"; #CU6 FP3    3.12.843.2     4294900    February 7, 2019   WinSCP 5.13.1
-        $bts2016_CU6 = "4477494"; #CU6        3.12.843.2     4477494    February 28, 2019  WinSCP 5.13.1
-        $bts2016_CU5_FP3 = "4103503"; #CU5 FP3    3.13.324.2     4103503    June 25, 2018      WinSCP 5.13.1
-        $bts2016_CU5Hotfix = "4345385"; #CU5 Hotfix 3.12.834.2     4132957    November 14, 2018  WinSCP 5.13.1
-        $bts2016_CU5 = "4132957"; #CU5        3.12.834.2     4132957    June 25, 2018      WinSCP 5.13.1
-        $bts2016_CU4_FP2 = "4094130"; #CU4 FP2    3.13.252.2     4094130    April 2, 2018       WinSCP 5.7.7
-        $bts2016_CU4 = "4051353"; #CU4        3.12.823.2     4051353    January 30, 2018    WinSCP 5.7.7
-        $bts2016_CU3_FP2 = "4054819"; #CU3 FP2    3.13.247.2     4054819    November 21, 2017   WinSCP 5.7.7
-        $bts2016_CU3_FU1 = "4014788"; #CU3 FU1    3.13.177.2     4014788    November 15, 2017   WinSCP 5.7.7
-        $bts2016_CU3 = "4039664"; #CU3        3.12.815.2     4039664    September 01, 2017  WinSCP 5.7.7
-        $bts2016_CU2 = "4021095"; #CU2        3.12.807.2     4021095    May 26, 2017        WinSCP 5.7.7
-        $bts2016_CU1 = "3208238"; #CU1        3.12.796.2     3208238    January 26, 2017    WinSCP 5.7.7
-        #NonCU      3.12.774.0     NA         September 30, 2016  WinSCP 5.7.7
+        #                               CU name     Build version  KB number  Release date        WinSCP Version
+        $bts2016_CU9_FP3 = "5005480";   #CU9 FP3    3.13.357.2     5005480    September 29, 2021  WinSCP 5.19.2
+        $bts2016_CU9 = "5005479";       #CU9        3.12.896.2     5005479    August 25, 2021     WinSCP 5.19.2
+        $bts2016_CU8_FP3 = "4590075";   #CU8 FP3    3.13.349.2     4590075    January 6, 2021     WinSCP 5.15.9
+        $bts2016_CU8 = "4583530";       #CU8        3.12.880.2     4583530    December 7, 2020    WinSCP 5.15.9
+        $bts2016_CU7_FP3 = "4536185";   #CU7 FP3    3.13.340.2     4536185    January 22, 2020    WinSCP 5.15.9
+        $bts2016_CU7 = "4528776";       #CU7        3.12.859.2     4528776    January 22, 2020    WinSCP 5.15.9
+        $bts2016_CU6_FP3 = "4294900";   #CU6 FP3    3.12.843.2     4294900    February 7, 2019    WinSCP 5.13.1
+        $bts2016_CU6 = "4477494";       #CU6        3.12.843.2     4477494    February 28, 2019   WinSCP 5.13.1
+        $bts2016_CU5_FP3 = "4103503";   #CU5 FP3    3.13.324.2     4103503    June 25, 2018       WinSCP 5.13.1
+        $bts2016_CU5Hotfix = "4345385"; #CU5 Hotfix 3.12.834.2     4345385    November 14, 2018   WinSCP 5.13.1
+        $bts2016_CU5 = "4132957";       #CU5        3.12.834.2     4132957    June 25, 2018       WinSCP 5.13.1
+        $bts2016_CU4_FP2 = "4094130";   #CU4 FP2    3.13.252.2     4094130    April 2, 2018       WinSCP 5.7.7
+        $bts2016_CU4 = "4051353";       #CU4        3.12.823.2     4051353    January 30, 2018    WinSCP 5.7.7
+        $bts2016_CU3_FP2 = "4054819";   #CU3 FP2    3.13.247.2     4054819    November 21, 2017   WinSCP 5.7.7
+        $bts2016_CU3_FU1 = "4014788";   #CU3 FU1    3.13.177.2     4014788    November 15, 2017   WinSCP 5.7.7
+        $bts2016_CU3 = "4039664";       #CU3        3.12.815.2     4039664    September 01, 2017  WinSCP 5.7.7
+        $bts2016_CU2 = "4021095";       #CU2        3.12.807.2     4021095    May 26, 2017        WinSCP 5.7.7
+        $bts2016_CU1 = "3208238";       #CU1        3.12.796.2     3208238    January 26, 2017    WinSCP 5.7.7
+                                        #NonCU      3.12.774.0     NA         September 30, 2016  WinSCP 5.7.7
         $CUfound = $false
         if (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU9_FP3 -BizTalkVersion $BizTalkVersion) {
             # running Microsoft BizTalk Server 2016 CU9 and FP3 with new WinSCP Version
@@ -514,23 +548,6 @@ if ($Continue) {
 }
 if ($Continue) {
     #use the right version of WinSCP
-    #The WinSCP directory structure has changed over time
-  
-    #WinSCP file locations for each major version:
-    #5.7.0\content\WinSCP.exe
-    #5.7.0\lib\WinSCPnet.dll
-    #5.9.0\content\WinSCP.exe
-    #5.9.0\lib\WinSCPnet.dll
-    #5.11.0\content\WinSCPnet.dll
-    #5.11.0\lib\WinSCP.exe
-    #5.13.0\lib\net\WinSCPnet.dll
-    #5.13.0\\tools\WinSCP.exe
-    #5.15.0\lib\netstandard\WinSCPnet.dll
-    #5.15.0\tools\WinSCP.exe
-    #5.17.0\lib\netstandard2.0\WinSCPnet.dll
-    #5.17.0\tools\WinSCP.exe
-    #5.19.0\lib\netstandard2.0\WinSCPnet.dll
-    #5.19.0\tools\WinSCP.exe
   
     if ($winSCPMinorVer -eq 17 -or $winSCPMinorVer -eq 19) {
         $winSCPexe = "WinSCP.$winSCPVersion\tools\$winSCPexeFile"
