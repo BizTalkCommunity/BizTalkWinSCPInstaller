@@ -37,6 +37,7 @@
   
     Microsoft BizTalk Server 2020
         CU name Build version KB number  Release day       WinSCP Version
+        CU6     3.13.895.0    5048971    November 21, 2024 WinSCP 6.3.5
         CU5     3.13.867.0    5032870    December 3, 2023  WinSCP 6.1.2
         CU4     3.13.844.0    5009901    August 22, 2022   WinSCP 5.19.2
         CU3     3.13.812.0    5007969    November 22, 2021 WinSCP 5.17.8
@@ -290,12 +291,28 @@ if ($Continue) {
         $winSCPVersion = "5.15.4"
         # Microsoft BizTalk Server 2020
                                         #CU name    Build version KB number   Release day         WinSCP Version
+        $bts2020_CU6 = "5048971";       #CU6        3.13.895.0    5048971     November 21, 2024   WinSCP 6.3.5
+        $bts2020_CU5 = "5032870";       #CU5        3.13.867.0    5032870     December 3, 2023    WinSCP 6.1.2
         $bts2020_CU4 = "5009901";       #CU4        3.13.844.0    5009901     August 22, 2022     WinSCP 5.19.2
         $bts2020_CU3 = "5007969";       #CU3        3.13.812.0    5007969     November 22, 2021   WinSCP 5.19.2
         $bts2020_CU2 = "5003151";       #CU2        3.13.785.0    5003151     April 19, 2021      WinSCP 5.17.8
         $bts2020_CU1 = "4538666";       #CU1        3.13.759.0    4538666     July 28, 2020       WinSCP 5.17.6
                                         #NonUC      3.13.717.0    NA          January 15, 2020    WinSCP 5.15.4
-        if (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2020_CU4 -BizTalkVersion $BizTalkVersion) {
+        if (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2020_CU6 -BizTalkVersion $BizTalkVersion) {
+            # Microsoft BizTalk Server 2020 CU6
+            $bizTalkCUVer = 'CU6'
+            $btsKB = $bts2020_CU6
+            $winSCPVersion = "6.3.5"
+            $CUFound = $true
+        }
+        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2020_CU5 -BizTalkVersion $BizTalkVersion) {
+            # Microsoft BizTalk Server 2020 CU5
+            $bizTalkCUVer = 'CU5'
+            $btsKB = $bts2020_CU5
+            $winSCPVersion = "6.1.2"
+            $CUFound = $true
+        }
+        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2020_CU4 -BizTalkVersion $BizTalkVersion) {
             # Microsoft BizTalk Server 2020 CU4
             $bizTalkCUVer = 'CU4'
             $btsKB = $bts2020_CU4
