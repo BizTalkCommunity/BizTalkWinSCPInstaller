@@ -1,126 +1,51 @@
 <#
 .SYNOPSIS
-    Version 8
-        Added support for Verbose flag to debug issues
-  
-    Installs WinSCP by detecting the version of Microsoft BizTalk Server 2016 or 2020
-    Determines which cumulative update is installed
-    Downloads NuGet and then WinSCP using NuGet and installs WinSCP to
-    the Microsoft BizTalk Server installation folder.
-  
-    Credits to Michael Stepensen who created the original script.
-    Credits to Nicolas Blatter for testing each new release of the cumulative updates.
-    Credits to Sandro Pereira for updating the script and helping improve it.
-    Latest credit to Niclas Öberg for updating the script to support BizTalk Server 2020 CU4.
-    Supported versions of BizTalk Server and cumulative updates:
-    Microsoft BizTalk Server 2016
-        CU/FU name Build version  KB number  Release date       WinSCP Version
-        CU9 FP3    3.13.357.2     5005480    September 29, 2021 WinSCP 5.19.2
-        CU9        3.12.896.2     5005479    August 25, 2021    WinSCP 5.19.2
-        CU8 FP3    3.13.349.2     4590075    January 6, 2021    WinSCP 5.15.9
-        CU8        3.12.880.2     4583530    December 7, 2020   WinSCP 5.17.8
-        CU7 FP3    3.13.340.2     4536185    January 22, 2020   WinSCP 5.15.9
-        CU7        3.12.859.2     4528776    January 22, 2020   WinSCP 5.15.9
-        CU6 FP3    3.12.843.2     4294900    February 7, 2019   WinSCP 5.13.1
-        CU6        3.12.843.2     4477494    February 28, 2019  WinSCP 5.13.1
-        CU5 FP3    3.13.324.2     4103503    June 25, 2018      WinSCP 5.13.1
-        CU5 Hotfix 3.12.834.2     4132957    November 14, 2018  WinSCP 5.13.1
-        CU5        3.12.834.2     4132957    June 25, 2018      WinSCP 5.13.1
-        CU4 FP2    3.13.252.2     4094130    April 2, 2018       WinSCP 5.7.7
-        CU4        3.12.823.2     4051353    January 30, 2018    WinSCP 5.7.7
-        CU3 FP2    3.13.247.2     4054819    November 21, 2017   WinSCP 5.7.7
-        CU3 FU1    3.13.177.2     4014788    November 15, 2017   WinSCP 5.7.7
-        CU3        3.12.815.2     4039664    September 01, 2017  WinSCP 5.7.7
-        CU2        3.12.807.2     4021095    May 26, 2017        WinSCP 5.7.7
-        CU1        3.12.796.2     3208238    January 26, 2017    WinSCP 5.7.7
-        RTM        3.12.774.2                December 1, 2016    WinSCP 5.7.7
-  
-    Microsoft BizTalk Server 2020
-        CU name Build version KB number  Release day       WinSCP Version
-        CU6     3.13.895.0    5048971    November 21, 2024 WinSCP 6.3.5
-        CU5     3.13.867.0    5032870    December 3, 2023  WinSCP 6.1.2
-        CU4     3.13.844.0    5009901    August 22, 2022   WinSCP 5.19.2
-        CU3     3.13.812.0    5007969    November 22, 2021 WinSCP 5.17.8
-        CU2     3.13.785.0    5003151    April 19, 2021    WinSCP 5.17.8
-        CU1     3.13.759.0    4538666    July 28, 2020     WinSCP 5.17.6
-        RTM     3.13.717.0    NA         January 15, 2020  WinSCP 5.15.4
+    Installs the correct WinSCP version for Microsoft BizTalk Server 2016 or 2020.
   
 .DESCRIPTION
-    Determining which WinSCP version to install depends on your current version of
-    Microsoft BizTalk Server 2016 or 2020 you have
-    which Cumulative Update and Feature Pack/Update you have installed.
-    Making sure that you have the right version has been historically difficult.
-    This script detects the version of the the most recent Cumulative Update
-    and Feature Pack and then downloads NuGet; gets the right version of WinSCP
-    using NuGet; and then finally copies WinSCP to
-    the Microsoft BizTalk Server installation folder.
-    The user must have write access to the Microsoft BizTalk Server
-    installation folder and the temporary folder used during
-    the process, which implies should be running under
-    an administrative PowerShell session.
-    By default, the user's TEMP folder  is used, and a subfolder 'nuget'
-    is created below that and used to store the temporary files.
-      
-    NOTE: This script does not delete the temporary folder after use.
-  
-    If the correct version of WinSCP is already installed in the BizTalk
-    directory, then the script detects the installation and does nothing.
-  
-    This script supports the -WhatIf parameter to show what
-    would happen but makes no changes to the system.
-      
-    This script supports the -ForceInstall parameter that overrides the
-    WinSCP detection and installs even if the correct WinSCP version
-    is installed.
-  
-    PRODUCTION USE
-    This script is designed to be used in a production environment
-    when the system does not have access to the internet.
-    During testing you will run this script on a system that has
-    the same version and cumulative update versions as production.
-    Specify the output folder using the -nugetDownloadFolder.
-      
-    Copy the output folder to production and run the script with
-    the -nugetDownloadFolder setting pointing to the folder.
-      
-    The script will detect that the folder contains NuGet and WinSCP
-    in the folder and will not attempt to go to the internet
-    to download WinSCP.
-    Instead, the script will use the existing files and copy them to
-    the Microsoft BizTalk Server installation folder.
+    Detects the BizTalk Server edition and installed cumulative update, maps it to
+    the required WinSCP version, and installs WinSCP.exe and WinSCPnet.dll to the
+    BizTalk installation folder.
+
+    Supports common PowerShell risk-mitigation parameters: -WhatIf and -Confirm.
+
+    If the required version is already installed, no changes are made unless
+    -ForceInstall is specified.
+
+    Supports online and offline workflows:
+    - Online: downloads nuget.exe and the WinSCP package automatically.
+    - Offline: uses pre-downloaded NuGet/WinSCP files in -nugetDownloadFolder.
+
+    Run in an elevated PowerShell session with write access to:
+    - the BizTalk installation folder
+    - the temporary download folder
+
+    The download folder is not deleted after execution.
   
 .PARAMETER nugetDownloadFolder
-    nugetDownloadFolder is the temporary folder that will be used
-    to save the NuGet program and the WinSCP components
-    during download.
-    This folder is not deleted after the script finishes.
+    Temporary folder used to store nuget.exe and extracted WinSCP package files.
+    Default: $env:TEMP\nuget
+
+    For offline installs, point this to a folder that already contains the
+    required NuGet and WinSCP package contents.
 .PARAMETER ForceInstall
-    ForceInstall is used to indicate that even if the existing
-    version of WinSCP is correct in the Microsoft BizTalk Server
-    installation folder it forces the install from the web.
-.PARAMETER WhatIf
-    WhatIf will show you what version of Microsoft BizTalk Server is installed.
-    Then the script will show you what version of WinSCP would install.
-    No changes are made to the system.
+    Reinstalls WinSCP even if the required version is already present in the
+    BizTalk installation folder.
 .EXAMPLE
     .\InstallWinSCPForBizTalk.ps1
-    This is the fully automated installation which will install
-    WinSCP based on the installed version of
-    Microsoft BizTalk Server, Cumulative Update and Feature Pack.
-    If needed, it will download NuGet and WinSCP to install it.
-    If the correct version of WinSCP is installed it will do nothing.
+    Detects BizTalk/CU and installs the required WinSCP version.
+    Downloads NuGet and WinSCP if needed.
 .EXAMPLE
     .\InstallWinSCPForBizTalk.ps1 -nugetDownloadFolder WinSCPTemp
-    This will install WinSCP using WinSCPTemp as the
-    temporary folder to store the files dowloaded.
+    Uses WinSCPTemp as the package/download folder.
 .EXAMPLE
     .\InstallWinSCPForBizTalk.ps1 -ForceInstall
-    This will install WinSCP even if the existing version of WinSCP is correct.
+    Forces reinstall of WinSCP.
 .NOTES
-    Author: Thomas Canter, Sandro Pereira, Michael Stepensen, Niclas Öberg
-    Date:   September 20, 2022
+    Authors: Thomas Canter, Sandro Pereira, Michael Stepensen, Niclas Oberg
+    Last Updated: April 2026
 #>
-[cmdletbinding(SupportsShouldProcess)]
+[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
 #Parameters
 Param(
     [Parameter(
@@ -141,18 +66,108 @@ function Search-BTSCumulativeUpdate {
         [string] $CumulativeUpdateID,
         [string] $BizTalkVersion
     )
-      
-    $CUFound = $false
-    $CUNameTemplate = "*BizTalk *" + $BizTalkVersion + "*KB*" + $CumulativeUpdateID + "*";
-    $CUFound = [bool](Get-ChildItem -path HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Name -like $CUNameTemplate });
-    return $CUFound
+
+    $uninstallPaths = @(
+        "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+
+    $installedApps = foreach ($path in $uninstallPaths) {
+        Get-ItemProperty -Path $path -ErrorAction SilentlyContinue
+    }
+
+    return [bool]($installedApps | Where-Object {
+        $name = [string]$_.DisplayName
+        if ([string]::IsNullOrWhiteSpace($name)) {
+            return $false
+        }
+
+        # Normalize whitespace and match key tokens with relaxed ordering.
+        $normalized = ($name -replace '\s+', ' ').Trim()
+        $hasBizTalkVersion = $normalized -match "(?i)\bBizTalk\b.*\b$BizTalkVersion\b"
+        $hasKB = $normalized -match "(?i)\bKB\D*$CumulativeUpdateID\b"
+        return ($hasBizTalkVersion -and $hasKB)
+    })
+}
+
+#####################################################################
+# Function to detect BizTalk cumulative update from DisplayName
+#####################################################################
+function Get-BTSCumulativeUpdateByDisplayName {
+    Param(
+        [string] $BizTalkVersion
+    )
+
+    $uninstallPaths = @(
+        "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+
+    $installedApps = foreach ($path in $uninstallPaths) {
+        Get-ItemProperty -Path $path -ErrorAction SilentlyContinue
+    }
+
+    $cuMatches = foreach ($app in $installedApps) {
+        $displayName = [string]$app.DisplayName
+        if ([string]::IsNullOrWhiteSpace($displayName)) {
+            continue
+        }
+
+        $normalized = ($displayName -replace '\s+', ' ').Trim()
+        $hasBizTalkVersion = $normalized -match "(?i)\bBizTalk\b.*\b$BizTalkVersion\b"
+        $hasCuMarker = $normalized -match '(?i)\b(Cumulative\s*Update|CU\s*\d+)\b'
+
+        if ($hasBizTalkVersion -and $hasCuMarker) {
+            $cuNumber = $null
+            $kbNumber = $null
+
+            if ($normalized -match '(?i)Cumulative\s*Update\s*(\d+)') {
+                $cuNumber = [int]$Matches[1]
+            }
+            elseif ($normalized -match '(?i)\bCU\s*(\d+)\b') {
+                $cuNumber = [int]$Matches[1]
+            }
+
+            if ($normalized -match '(?i)\bKB\D*(\d{6,8})\b') {
+                $kbNumber = $Matches[1]
+            }
+
+            if ($cuNumber) {
+                [pscustomobject]@{
+                    CUNumber = $cuNumber
+                    KB = $kbNumber
+                    DisplayName = $displayName
+                    InstallDate = $app.InstallDate
+                }
+            }
+        }
+    }
+
+    $bestMatch = $cuMatches | Sort-Object -Property CUNumber, InstallDate -Descending | Select-Object -First 1
+    if ($bestMatch) {
+        return [pscustomobject]@{
+            Found = $true
+            CUNumber = $bestMatch.CUNumber
+            KB = $bestMatch.KB
+            DisplayName = $bestMatch.DisplayName
+            InstallDate = $bestMatch.InstallDate
+        }
+    }
+
+    return [pscustomobject]@{
+        Found = $false
+        CUNumber = 0
+        KB = $null
+        DisplayName = $null
+        InstallDate = $null
+    }
 }
 #####################################################################
 # Function to write an error
 #####################################################################
 function Write-Error {
     Param([string] $ErrorMessage)
-    Write-Success -ForegroundColor Red "$ErrorMessage";
+    Write-Host -ForegroundColor Red "$ErrorMessage";
 }
 #####################################################################
 # Function to write success
@@ -161,47 +176,100 @@ function Write-Success {
     Param([string] $SuccessMessage)
     Write-Host -ForegroundColor Green "$SuccessMessage";
 }
+
+#####################################################################
+# Function to test if current session runs elevated
+#####################################################################
+function Test-IsAdministrator {
+    $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+#####################################################################
+# Function to resolve WinSCP package layout from extracted NuGet files
+#####################################################################
+function Resolve-WinSCPPackageLayout {
+    Param(
+        [string] $PackageRoot,
+        [string] $ExeFileName,
+        [string] $DllFileName
+    )
+
+    $resolvedExe = $null
+    $resolvedDll = $null
+
+    if (-not (Test-Path $PackageRoot)) {
+        return [pscustomobject]@{
+            ExePath = $null
+            DllPath = $null
+            IsResolved = $false
+        }
+    }
+
+    $exeCandidates = @(
+        (Join-Path $PackageRoot "tools\$ExeFileName"),
+        (Join-Path $PackageRoot "content\$ExeFileName")
+    )
+    $dllCandidates = @(
+        (Join-Path $PackageRoot "lib\netstandard2.0\$DllFileName"),
+        (Join-Path $PackageRoot "lib\netstandard\$DllFileName"),
+        (Join-Path $PackageRoot "lib\net\$DllFileName"),
+        (Join-Path $PackageRoot "lib\$DllFileName")
+    )
+
+    foreach ($candidate in $exeCandidates) {
+        if (Test-Path $candidate) {
+            $resolvedExe = $candidate
+            break
+        }
+    }
+
+    foreach ($candidate in $dllCandidates) {
+        if (Test-Path $candidate) {
+            $resolvedDll = $candidate
+            break
+        }
+    }
+
+    if (-not $resolvedExe) {
+        $exeFile = Get-ChildItem -Path $PackageRoot -Recurse -File -Filter $ExeFileName -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($exeFile) {
+            $resolvedExe = $exeFile.FullName
+        }
+    }
+
+    if (-not $resolvedDll) {
+        $dllFile = Get-ChildItem -Path $PackageRoot -Recurse -File -Filter $DllFileName -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($dllFile) {
+            $resolvedDll = $dllFile.FullName
+        }
+    }
+
+    return [pscustomobject]@{
+        ExePath = $resolvedExe
+        DllPath = $resolvedDll
+        IsResolved = [bool]($resolvedExe -and $resolvedDll)
+    }
+}
 # Default $Continue flag to true, set to false to end the process
 $Continue = $true;
+$PrerequisiteFailure = $false;
   
 $DebugPreference = "Continue";
+$isAdministrator = Test-IsAdministrator
 #####################################################################
-# Initialize the base default versions
-# Assume BizTalk Server 2016 with no Cumulative Update installed
-# WinSCP has stored the required files for BizTalk in different
-# folders for each minor version
-# In the Nuget Archive the WinSCP files are stored in the format:
-# WinSCP + Version \ EXE Folder \ EXE File
-# Here is the example for WinSCP 5.7.7
-# WinSCP.5.7.7\tools\WinSCP.exe
-# WinSCP + Version \ EXE Folder \ EXE File
-# WinSCP.5.7.7\lib\netstandard2.0\WinSCPnet.dll
-# WinSCP + Version \ DLL Folder \ DLL File
-# WinSCP 5.7.7
-# 5.7.7
-#   EXE folder = 'content'
-#   DLL folder = 'lib'
-# 5.11.*
-#   EXE folder = 'content'
-#   DLL folder = 'lib'
-# 5.13.1
-#   EXE folder = 'tools'
-#   DLL folder = 'lib\net'
-# 5.15.*
-#   EXE folder = 'tools'
-#   DLL folder = 'lib\netstandard'
-# 5.15.9
-#   EXE folder = 'tools'
-#   DLL folder = 'lib\netstandard'
-# 5.17.6
-#   EXE folder = 'tools'
-#   DLL folder = 'lib\netstandard2.0'
-# 5.17.8
-#   EXE folder = 'tools'
-#   DLL folder = 'lib\netstandard2.0'
-# 5.19.2
-#   EXE folder = 'tools'
-#   DLL folder = 'lib\netstandard2.0'
+# Default WinSCP configuration and package layout notes
+# - Start with a safe default (BizTalk 2016 RTM -> WinSCP 5.7.7).
+# - Actual WinSCP version is selected later from detected BizTalk CU.
+# - NuGet package root format: WinSCP.<version>\
+# - Typical EXE path: tools\WinSCP.exe (older packages may use content\WinSCP.exe)
+# - Typical DLL paths:
+#     lib\netstandard2.0\WinSCPnet.dll
+#     lib\netstandard\WinSCPnet.dll
+#     lib\net\WinSCPnet.dll
+#     lib\WinSCPnet.dll
+# - This script resolves EXE and DLL paths dynamically from extracted files.
 #####################################################################
 $winSCPVersion = "5.7.7"
 $winSCPexeFile = "WinSCP.exe";
@@ -272,6 +340,24 @@ Write-Verbose "`$BizTalk2020ProductCode     $BizTalk2020ProductCode";
 Write-Verbose "`$bizTalkProductCodeCurrent  $bizTalkProductCodeCurrent";
 Write-Verbose "`$bizTalkProductName         $bizTalkProductName";
 Write-Verbose "`$bizTalkProductVersion      $bizTalkProductVersion";
+
+# Fail fast for forced reinstall in non-elevated sessions.
+if ($Continue -and -not $isAdministrator -and $ForceInstall) {
+    Write-Error "`n$bangString"
+    Write-Error "This PowerShell session is not running as Administrator."
+    Write-Error "The BizTalk installation folder requires elevation for writes: $bizTalkInstallFolder"
+    if (-not $WhatIfPreference) {
+        Write-Error "ForceInstall requires write access and will fail without elevation."
+        Write-Error "Please rerun from an elevated PowerShell session."
+        Write-Error "$bangString"
+        $PrerequisiteFailure = $true
+        $Continue = $false
+    }
+    else {
+        Write-Error "Continuing in read/dry-run mode. If a real install is required, rerun elevated."
+        Write-Error "$bangString"
+    }
+}
   
 $winSCPVersion = $null;
 $btsKB = "none";
@@ -289,200 +375,103 @@ if ($Continue) {
     Write-Success "Testing to see which Cumulative Update is installed";
     if ($BizTalkVersion -eq "2020") {
         $winSCPVersion = "5.15.4"
-        # Microsoft BizTalk Server 2020
-                                        #CU name    Build version KB number   Release day         WinSCP Version
-        $bts2020_CU6 = "5048971";       #CU6        3.13.895.0    5048971     November 21, 2024   WinSCP 6.3.5
-        $bts2020_CU5 = "5032870";       #CU5        3.13.867.0    5032870     December 3, 2023    WinSCP 6.1.2
-        $bts2020_CU4 = "5009901";       #CU4        3.13.844.0    5009901     August 22, 2022     WinSCP 5.19.2
-        $bts2020_CU3 = "5007969";       #CU3        3.13.812.0    5007969     November 22, 2021   WinSCP 5.19.2
-        $bts2020_CU2 = "5003151";       #CU2        3.13.785.0    5003151     April 19, 2021      WinSCP 5.17.8
-        $bts2020_CU1 = "4538666";       #CU1        3.13.759.0    4538666     July 28, 2020       WinSCP 5.17.6
-                                        #NonUC      3.13.717.0    NA          January 15, 2020    WinSCP 5.15.4
-        if (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2020_CU6 -BizTalkVersion $BizTalkVersion) {
-            # Microsoft BizTalk Server 2020 CU6
-            $bizTalkCUVer = 'CU6'
-            $btsKB = $bts2020_CU6
-            $winSCPVersion = "6.3.5"
+        # Microsoft BizTalk Server 2020 CU mapping
+        # CU   Build       KB(s)                 Release Date       WinSCP
+        # CU6  3.13.895.0  5043408, 5048971      November 21, 2024  6.3.5
+        # CU5  3.13.867.0  5032870               December 3, 2023   6.1.2
+        # CU4  3.13.844.0  5009901               August 22, 2022    5.19.2
+        # CU3  3.13.812.0  5007969               November 22, 2021  5.19.2
+        # CU2  3.13.785.0  5003151               April 19, 2021     5.17.8
+        # CU1  3.13.759.0  4538666               July 28, 2020      5.17.6
+        # RTM  3.13.717.0  NA                    January 15, 2020   5.15.4
+        $bts2020CUMap = @{
+            6 = @{ KBs = @("5043408", "5048971"); WinSCP = "6.3.5" }
+            5 = @{ KBs = @("5032870"); WinSCP = "6.1.2" }
+            4 = @{ KBs = @("5009901"); WinSCP = "5.19.2" }
+            3 = @{ KBs = @("5007969"); WinSCP = "5.19.2" }
+            2 = @{ KBs = @("5003151"); WinSCP = "5.17.8" }
+            1 = @{ KBs = @("4538666"); WinSCP = "5.17.6" }
+        }
+
+        $detected2020CU = Get-BTSCumulativeUpdateByDisplayName -BizTalkVersion $BizTalkVersion
+        if ($detected2020CU.Found -and $bts2020CUMap.ContainsKey([int]$detected2020CU.CUNumber)) {
+            $cuNumber = [int]$detected2020CU.CUNumber
+            $cuEntry = $bts2020CUMap[$cuNumber]
+            $bizTalkCUVer = "CU$cuNumber"
+            $btsKB = if ($detected2020CU.KB) { $detected2020CU.KB } else { $cuEntry.KBs[0] }
+            $winSCPVersion = $cuEntry.WinSCP
             $CUFound = $true
         }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2020_CU5 -BizTalkVersion $BizTalkVersion) {
-            # Microsoft BizTalk Server 2020 CU5
-            $bizTalkCUVer = 'CU5'
-            $btsKB = $bts2020_CU5
-            $winSCPVersion = "6.1.2"
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2020_CU4 -BizTalkVersion $BizTalkVersion) {
-            # Microsoft BizTalk Server 2020 CU4
-            $bizTalkCUVer = 'CU4'
-            $btsKB = $bts2020_CU4
-            $winSCPVersion = "5.19.2"
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2020_CU3 -BizTalkVersion $BizTalkVersion) {
-            # Microsoft BizTalk Server 2020 CU3
-            $bizTalkCUVer = 'CU3'
-            $btsKB = $bts2020_CU3
-            $winSCPVersion = "5.19.2"
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2020_CU2 -BizTalkVersion $BizTalkVersion) {
-            # Microsoft BizTalk Server 2020 CU2
-            $bizTalkCUVer = 'CU2'
-            $btsKB = $bts2020_CU2
-            $winSCPVersion = "5.17.8"
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2020_CU1 -BizTalkVersion $BizTalkVersion) {
-            # Microsoft BizTalk Server 2020 CU1
-            $bizTalkCUVer = 'CU1'
-            $btsKB = $bts2020_CU1
-            $winSCPVersion = "5.17.6"
-            $CUFound = $true
+
+        if (-not $CUFound) {
+            foreach ($cuNumber in @(6, 5, 4, 3, 2, 1)) {
+                $cuEntry = $bts2020CUMap[$cuNumber]
+                foreach ($kb in $cuEntry.KBs) {
+                    if (Search-BTSCumulativeUpdate -CumulativeUpdateID $kb -BizTalkVersion $BizTalkVersion) {
+                        $bizTalkCUVer = "CU$cuNumber"
+                        $btsKB = $kb
+                        $winSCPVersion = $cuEntry.WinSCP
+                        $CUFound = $true
+                        break
+                    }
+                }
+                if ($CUFound) {
+                    break
+                }
+            }
         }
     }
     elseif ($BizTalkVersion -eq "2016") {
-        # Microsoft BizTalk Server 2016
-        #                               CU name     Build version  KB number  Release date        WinSCP Version
-        $bts2016_CU9_FP3 = "5005480";   #CU9 FP3    3.13.357.2     5005480    September 29, 2021  WinSCP 5.19.2
-        $bts2016_CU9 = "5005479";       #CU9        3.12.896.2     5005479    August 25, 2021     WinSCP 5.19.2
-        $bts2016_CU8_FP3 = "4590075";   #CU8 FP3    3.13.349.2     4590075    January 6, 2021     WinSCP 5.15.9
-        $bts2016_CU8 = "4583530";       #CU8        3.12.880.2     4583530    December 7, 2020    WinSCP 5.15.9
-        $bts2016_CU7_FP3 = "4536185";   #CU7 FP3    3.13.340.2     4536185    January 22, 2020    WinSCP 5.15.9
-        $bts2016_CU7 = "4528776";       #CU7        3.12.859.2     4528776    January 22, 2020    WinSCP 5.15.9
-        $bts2016_CU6_FP3 = "4294900";   #CU6 FP3    3.12.843.2     4294900    February 7, 2019    WinSCP 5.13.1
-        $bts2016_CU6 = "4477494";       #CU6        3.12.843.2     4477494    February 28, 2019   WinSCP 5.13.1
-        $bts2016_CU5_FP3 = "4103503";   #CU5 FP3    3.13.324.2     4103503    June 25, 2018       WinSCP 5.13.1
-        $bts2016_CU5Hotfix = "4345385"; #CU5 Hotfix 3.12.834.2     4345385    November 14, 2018   WinSCP 5.13.1
-        $bts2016_CU5 = "4132957";       #CU5        3.12.834.2     4132957    June 25, 2018       WinSCP 5.13.1
-        $bts2016_CU4_FP2 = "4094130";   #CU4 FP2    3.13.252.2     4094130    April 2, 2018       WinSCP 5.7.7
-        $bts2016_CU4 = "4051353";       #CU4        3.12.823.2     4051353    January 30, 2018    WinSCP 5.7.7
-        $bts2016_CU3_FP2 = "4054819";   #CU3 FP2    3.13.247.2     4054819    November 21, 2017   WinSCP 5.7.7
-        $bts2016_CU3_FU1 = "4014788";   #CU3 FU1    3.13.177.2     4014788    November 15, 2017   WinSCP 5.7.7
-        $bts2016_CU3 = "4039664";       #CU3        3.12.815.2     4039664    September 01, 2017  WinSCP 5.7.7
-        $bts2016_CU2 = "4021095";       #CU2        3.12.807.2     4021095    May 26, 2017        WinSCP 5.7.7
-        $bts2016_CU1 = "3208238";       #CU1        3.12.796.2     3208238    January 26, 2017    WinSCP 5.7.7
-                                        #NonCU      3.12.774.0     NA         September 30, 2016  WinSCP 5.7.7
-        $CUfound = $false
-        if (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU9_FP3 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU9 and FP3 with new WinSCP Version
-            $winSCPVersion = "5.19.2"
-            $btsKB = $bts2016_CU9_FP3
-            $bizTalkCUVer = 'CU9 and FP3'
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU9 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU9 with new WinSCP Version
-            $winSCPVersion = "5.19.2"
-            $btsKB = $bts2016_CU9
-            $bizTalkCUVer = 'CU9'
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU8_FP3 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU8 and FP3 with new WinSCP Version
-            $winSCPVersion = "5.15.9"
-            $btsKB = $bts2016_CU8_FP3
-            $bizTalkCUVer = 'CU8 and FP3'
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU8 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU8 with new WinSCP Version
-            $winSCPVersion = "5.15.9"
-            $btsKB = $bts2016_CU8
-            $bizTalkCUVer = 'CU8'
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU7_FP3 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU7 and FP3 with new WinSCP Version
-            $winSCPVersion = "5.15.9"
-            $btsKB = $bts2016_CU7_FP3
-            $bizTalkCUVer = 'CU7 and FP3'
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU7 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU7 with new WinSCP Version
-            $winSCPVersion = "5.15.9"
-            $btsKB = $bts2016_CU7
-            $bizTalkCUVer = 'CU7'
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU6_FP3 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU6 and FP 3 with new WinSCP Version
-            $winSCPVersion = "5.13.1"
-            $btsKB = $bts2016_CU6_FP3
-            $bizTalkCUVer = 'CU6 and FP3'
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU6 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU6 with new WinSCP Version
-            $winSCPVersion = "5.13.1"
-            $btsKB = $bts2016_CU6
-            $bizTalkCUVer = 'CU6'
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU5_FP3 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU5 and FP3 with new WinSCP Version
-            $winSCPVersion = "5.13.1"
-            $btsKB = $bts2016_CU5_FP3
-            $bizTalkCUVer = 'CU5 and FP3'
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU5Hotfix -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU5 Hotfix with new WinSCP Version
-            $winSCPVersion = "5.13.1"
-            $btsKB = $bts2016_CU5HotFix
-            $bizTalkCUVer = 'CU5 Hotfix'
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU5 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU5 with new WinSCP Version
-            $winSCPVersion = "5.13.1"
-            $btsKB = $bts2016_CU5
-            $bizTalkCUVer = 'CU5'
-            $CUFound = $true
-        }
-        # The remainder of the CU/FU combinations use the default WinSCP Version 5.7.7
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU4_FP2 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU4 and FP2, using original WinSCP Version
-            $bizTalkCUVer = 'CU4 and FP2'
-            $btsKB = $bts2016_CU4_FP2
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU4 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU4, using original WinSCP Version
-            $bizTalkCUVer = 'CU4'
-            $btsKB = $bts2016_CU4
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU3_FP2 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU3 and FP2, using original WinSCP Version
-            $bizTalkCUVer = 'CU3 and FP2'
-            $btsKB = $bts2016_CU3_FP2
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU3_FU1 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU3 and FU1, using original WinSCP Version
-            $bizTalkCUVer = 'CU3 and FU1'
-            $btsKB = $bts2016_CU3_FU1
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU3 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU3, using original WinSCP Version
-            $bizTalkCUVer = 'CU3'
-            $btsKB = $bts2016_CU3
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU2 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU2, using original WinSCP Version
-            $bizTalkCUVer = 'CU2 or FU1'
-            $btsKB = $bts2016_CU2
-            $CUFound = $true
-        }
-        elseif (Search-BTSCumulativeUpdate -CumulativeUpdateID $bts2016_CU1 -BizTalkVersion $BizTalkVersion) {
-            # running Microsoft BizTalk Server 2016 CU1, using original WinSCP Version
-            $bizTalkCUVer = 'CU1'
-            $btsKB = $bts2016_CU1
-            $CUFound = $true
+        # Microsoft BizTalk Server 2016 update mapping
+        # Label         Build       KB        Release Date       WinSCP
+        # CU9 and FP3   3.13.357.2  5005480   September 29, 2021 5.19.2
+        # CU9           3.12.896.2  5005479   August 25, 2021    5.19.2
+        # CU8 and FP3   3.13.349.2  4590075   January 6, 2021    5.15.9
+        # CU8           3.12.880.2  4583530   December 7, 2020   5.15.9
+        # CU7 and FP3   3.13.340.2  4536185   January 22, 2020   5.15.9
+        # CU7           3.12.859.2  4528776   January 22, 2020   5.15.9
+        # CU6 and FP3   3.12.843.2  4294900   February 7, 2019   5.13.1
+        # CU6           3.12.843.2  4477494   February 28, 2019  5.13.1
+        # CU5 and FP3   3.13.324.2  4103503   June 25, 2018      5.13.1
+        # CU5 Hotfix    3.12.834.2  4345385   November 14, 2018  5.13.1
+        # CU5           3.12.834.2  4132957   June 25, 2018      5.13.1
+        # CU4 and FP2   3.13.252.2  4094130   April 2, 2018      5.7.7
+        # CU4           3.12.823.2  4051353   January 30, 2018   5.7.7
+        # CU3 and FP2   3.13.247.2  4054819   November 21, 2017  5.7.7
+        # CU3 and FU1   3.13.177.2  4014788   November 15, 2017  5.7.7
+        # CU3           3.12.815.2  4039664   September 1, 2017  5.7.7
+        # CU2 / FU1     3.12.807.2  4021095   May 26, 2017       5.7.7
+        # CU1           3.12.796.2  3208238   January 26, 2017   5.7.7
+        # RTM           3.12.774.0  NA        September 30, 2016 5.7.7
+        $bts2016UpdateMap = @(
+            @{ Label = 'CU9 and FP3'; KB = '5005480'; WinSCP = '5.19.2' }
+            @{ Label = 'CU9'; KB = '5005479'; WinSCP = '5.19.2' }
+            @{ Label = 'CU8 and FP3'; KB = '4590075'; WinSCP = '5.15.9' }
+            @{ Label = 'CU8'; KB = '4583530'; WinSCP = '5.15.9' }
+            @{ Label = 'CU7 and FP3'; KB = '4536185'; WinSCP = '5.15.9' }
+            @{ Label = 'CU7'; KB = '4528776'; WinSCP = '5.15.9' }
+            @{ Label = 'CU6 and FP3'; KB = '4294900'; WinSCP = '5.13.1' }
+            @{ Label = 'CU6'; KB = '4477494'; WinSCP = '5.13.1' }
+            @{ Label = 'CU5 and FP3'; KB = '4103503'; WinSCP = '5.13.1' }
+            @{ Label = 'CU5 Hotfix'; KB = '4345385'; WinSCP = '5.13.1' }
+            @{ Label = 'CU5'; KB = '4132957'; WinSCP = '5.13.1' }
+            @{ Label = 'CU4 and FP2'; KB = '4094130'; WinSCP = '5.7.7' }
+            @{ Label = 'CU4'; KB = '4051353'; WinSCP = '5.7.7' }
+            @{ Label = 'CU3 and FP2'; KB = '4054819'; WinSCP = '5.7.7' }
+            @{ Label = 'CU3 and FU1'; KB = '4014788'; WinSCP = '5.7.7' }
+            @{ Label = 'CU3'; KB = '4039664'; WinSCP = '5.7.7' }
+            @{ Label = 'CU2 or FU1'; KB = '4021095'; WinSCP = '5.7.7' }
+            @{ Label = 'CU1'; KB = '3208238'; WinSCP = '5.7.7' }
+        )
+
+        foreach ($update in $bts2016UpdateMap) {
+            if (Search-BTSCumulativeUpdate -CumulativeUpdateID $update.KB -BizTalkVersion $BizTalkVersion) {
+                $winSCPVersion = $update.WinSCP
+                $btsKB = $update.KB
+                $bizTalkCUVer = $update.Label
+                $CUFound = $true
+                break
+            }
         }
     }
     if ($CUFound) {
@@ -492,7 +481,12 @@ if ($Continue) {
         # running Microsoft BizTalk Server without any Cumulative Updates, using original WinSCP Version
         Write-Success "Detected Microsoft BizTalk Server $BizTalkVersion with no cumulative updates.";
     }
-    Write-Success "If necessary, this script will download WinSCP $winSCPVersion";
+    if ($ForceInstall) {
+        Write-Success "ForceInstall was specified; this script will download/reuse and install WinSCP $winSCPVersion.";
+    }
+    else {
+        Write-Success "If necessary, this script will download WinSCP $winSCPVersion";
+    }
 }
 Write-Verbose  "The result of the search for the BizTalk Cumulative Update:";
 Write-Verbose "`$winSCPVersion = $winSCPVersion";
@@ -525,6 +519,8 @@ if ($Continue) {
         Write-Success "Detected WinSCP $winSCPVersion is already installed in Microsoft BizTalk Server.";
         if ($ForceInstall -and $btsWinSCPProductInstalledAndCorrect) {
             Write-Success "Reinstalling because ForceInstall was specified.";
+            # Force a full reinstall path and only mark success after copy completes.
+            $btsWinSCPProductInstalledAndCorrect = $false
         }
         else {
             Write-Success "Skipping installing the already installed version.";
@@ -545,61 +541,57 @@ Write-Verbose "`$winSCPProductVersionRequired        $winSCPProductVersionRequir
 Write-Verbose "`$btsWinSCPProductInstalledAndCorrect $btsWinSCPProductInstalledAndCorrect";
 Write-Verbose "`$btsTargetWinSCPExe                  $btsTargetWinSCPExe";
 Write-Verbose "`$btsTargetWinSCPDll                  $btsTargetWinSCPDll";
+
+if ($Continue -and -not $isAdministrator -and -not $ForceInstall) {
+    Write-Error "`n$bangString"
+    Write-Error "This PowerShell session is not running as Administrator."
+    Write-Error "The BizTalk installation folder requires elevation for writes: $bizTalkInstallFolder"
+    Write-Error "Continuing in read/dry-run mode. If a real install is required, rerun elevated."
+    Write-Error "$bangString"
+}
   
   
 if ($Continue) {
-    $winSCPVersionArray = $winSCPVersion.Split('.');
-    if ($winSCPVersionArray.Count -gt 1) {
-        [int]$winSCPMajorVer = $winSCPVersionArray[0];
-        [int]$winSCPMinorVer = $winSCPVersionArray[1];
-    }
-    else {
-        $Continue = $false;
-        Write-Error "WinSCP Version $winSCPVersion is not a recogized version such as 5.7.7.";
-        Write-Error $bangString;
-    }
-    if ($winSCPMajorVer -ne 5) {
-        $Continue = $false;
-        Write-Error "WinSCP Version $winSCPVersion is not a supported version, only version 5.x.x is supported.";
-        Write-Error $bangString;
+    $winSCPVersionInfo = $null
+    if (-not [version]::TryParse($winSCPVersion, [ref]$winSCPVersionInfo)) {
+        $Continue = $false
+        if ([string]::IsNullOrEmpty($winSCPVersion)) {
+            Write-Error "The WinSCP version was not set - the CU detection logic did not assign a value to `$winSCPVersion."
+            Write-Error "This is likely a script bug. Review the BizTalk CU detection output above and confirm a CU or RTM baseline was matched."
+        } else {
+            Write-Error "The WinSCP version '$winSCPVersion' is not a valid dotted version number (e.g. 5.7.7 or 6.3.5)."
+            Write-Error "This value came from the CU map table in this script. Check the WinSCP version string for BizTalk $BizTalkVersion $bizTalkCUVer in the table and correct it."
+        }
+        Write-Error $bangString
     }
 }
 if ($Continue) {
-    #use the right version of WinSCP
-  
-    if ($winSCPMinorVer -eq 17 -or $winSCPMinorVer -eq 19) {
-        $winSCPexe = "WinSCP.$winSCPVersion\tools\$winSCPexeFile"
-        $winSCPdll = "WinSCP.$winSCPVersion\lib\netstandard2.0\$winSCPdllFile"
+    # Resolve package file layout from what's already in the NuGet folder, if present.
+    $winSCPPackageRoot = "$nugetDownloadFolder\WinSCP.$winSCPVersion"
+    $winSCPLayout = Resolve-WinSCPPackageLayout -PackageRoot $winSCPPackageRoot -ExeFileName $winSCPexeFile -DllFileName $winSCPdllFile
+
+    $WinSCPEXEDownload = $winSCPLayout.ExePath
+    $WinSCPDllDownload = $winSCPLayout.DllPath
+    $WinSCPEXEDownloadAlreadyExists = $false
+    $WinSCPDllDownloadAlreadyExists = $false
+    if ($WinSCPEXEDownload) {
+        $WinSCPEXEDownloadAlreadyExists = Test-Path $WinSCPEXEDownload
     }
-    elseif ($winSCPMinorVer -eq 15) {
-        $winSCPexe = "WinSCP.$winSCPVersion\tools\$winSCPexeFile"
-        $winSCPdll = "WinSCP.$winSCPVersion\lib\netstandard\$winSCPdllFile"
+    if ($WinSCPDllDownload) {
+        $WinSCPDllDownloadAlreadyExists = Test-Path $WinSCPDllDownload
     }
-    elseif ($winSCPMinorVer -eq 13) {
-        $winSCPexe = "WinSCP.$winSCPVersion\tools\$winSCPexeFile"
-        $winSCPdll = "WinSCP.$winSCPVersion\lib\net\$winSCPdllFile"
-    }
-    elseif ($winSCPVersion -le 11) {
-        $WinSCPexe = "WinSCP.$winSCPVersion\content\$winSCPexeFile"
-        $winSCPdll = "WinSCP.$winSCPVersion\lib\$winSCPdllFile"
-    }
-      
-    $WinSCPEXEDownload = "$nugetDownloadFolder\$winSCPexe"
-    $WinSCPDllDownload = "$nugetDownloadFolder\$winSCPdll"
-    $WinSCPEXEDownloadAlreadyExists = Test-Path $WinSCPexe;
-    $WinSCPDllDownloadAlreadyExists = Test-Path $$WinSCPDllDownload;
     $nugetDownloadFolderAlreadyExists = Test-Path $nugetDownloadFolder;
     $nugetDownloadFolderExists = $nugetDownloadFolderAlreadyExists;
     Write-Success "`n$hashString"
     Write-Success "Preparing the output folder to store the Nuget and WinSCP downloads"
     Write-Success "$hashString"
-    if ($Continue -and -not $nugetDownloadFolderAlreadyExists -and -not $btsWinSCPProductInstalledAndCorrect) {
+    if ($Continue -and -not $nugetDownloadFolderAlreadyExists) {
         ##############################################################
         # Prepare output folder
         ##############################################################
         if ($PSCmdlet.ShouldProcess("$nugetDownloadFolder", "Create Folder")) {
             Write-Success ("The target folder `'$nugetDownloadFolder`' doesn't exist, creating the folder.");
-            New-Item -Path $nugetDownloadFolder -ItemType "Directory" > $null
+            New-Item -Path $nugetDownloadFolder -ItemType "Directory" -Force > $null
             $nugetDownloadFolderExists = Test-Path $nugetDownloadFolder
             if (-not $nugetDownloadFolderExists) {
                 $Continue = $false
@@ -661,10 +653,14 @@ Write-Verbose "`$sourceNugetExe              $sourceNugetExe";
 Write-Verbose "`$targetNugetExe              $targetNugetExe";
   
 if ($Continue) {
-    $WinSCPEXEAlreadyExists = Test-Path $WinSCPEXEDownload
-    $WinSCPDLLAlreadyExists = Test-Path $WinSCPDllDownload
-    $WinSCPEXEExists = Test-Path $WinSCPEXEDownload
-    $WinSCPDLLExists = Test-Path $WinSCPDllDownload
+    $winSCPPackageRoot = "$nugetDownloadFolder\WinSCP.$winSCPVersion"
+    $winSCPLayout = Resolve-WinSCPPackageLayout -PackageRoot $winSCPPackageRoot -ExeFileName $winSCPexeFile -DllFileName $winSCPdllFile
+    $WinSCPEXEDownload = $winSCPLayout.ExePath
+    $WinSCPDllDownload = $winSCPLayout.DllPath
+    $WinSCPEXEAlreadyExists = [bool]$WinSCPEXEDownload -and (Test-Path $WinSCPEXEDownload)
+    $WinSCPDLLAlreadyExists = [bool]$WinSCPDllDownload -and (Test-Path $WinSCPDllDownload)
+    $WinSCPEXEExists = $WinSCPEXEAlreadyExists
+    $WinSCPDLLExists = $WinSCPDLLAlreadyExists
     $getWinSCP = "'$targetNugetExe' Install WinSCP -Version $winSCPVersion -NonInteractive -OutputDirectory '$nugetDownloadFolder'"
     Write-Success "`n$hashString";
     Write-Success "Downloading WinSCP version $winSCPVersion from NuGet";
@@ -674,9 +670,12 @@ if ($Continue) {
     Write-Success "$hashString";
     if (-not $WinSCPEXEAlreadyExists -or -not $WinSCPDLLAlreadyExists) {
         if ($PSCmdlet.ShouldProcess("$getWinSCP", "Run Command")) {
-            Invoke-Expression "& $getWinSCP";
-            $WinSCPEXEExists = Test-Path $WinSCPEXEDownload
-            $WinSCPDLLExists = Test-Path $WinSCPDllDownload
+            & $targetNugetExe Install WinSCP -Version $winSCPVersion -NonInteractive -OutputDirectory $nugetDownloadFolder
+            $winSCPLayout = Resolve-WinSCPPackageLayout -PackageRoot $winSCPPackageRoot -ExeFileName $winSCPexeFile -DllFileName $winSCPdllFile
+            $WinSCPEXEDownload = $winSCPLayout.ExePath
+            $WinSCPDllDownload = $winSCPLayout.DllPath
+            $WinSCPEXEExists = [bool]$WinSCPEXEDownload -and (Test-Path $WinSCPEXEDownload)
+            $WinSCPDLLExists = [bool]$WinSCPDllDownload -and (Test-Path $WinSCPDllDownload)
             if (-not $WinSCPEXEExists -or -not $WinSCPDLLExists) {
                 $Continue = $false
                 Write-Error "`n$bangString";
@@ -709,25 +708,38 @@ if ($Continue -and -not $btsWinSCPProductInstalledAndCorrect) {
     #Copy WinSCP items to Microsoft BizTalk Server Folder
     Write-Success "Copying WinSCP version $winSCPVersion to Microsoft BizTalk Server Folder:";
     Write-Success "`t`'$bizTalkInstallFolder'`.";
-    if ($PSCmdlet.ShouldProcess("$WinSCPexe and $WinSCPdll to `'$bizTalkInstallFolder`'", "Copy Files")) {
-        Copy-Item $WinSCPEXEDownload $bizTalkInstallFolder
-        Copy-Item $WinSCPDllDownload $bizTalkInstallFolder
-        $WinSCPTargetEXEExists = Test-Path $btsTargetWinSCPExe
-        $WinSCPDLLTargetExists = Test-Path $btsTargetWinSCPDll
-        if ($WinSCPTargetEXEExists -and $WinSCPDLLTargetExists) {
-            $btsWinSCPProductInstalledAndCorrect = $true;
-        }
-        else {
-            $Continue = $false
-            if (-not $WinSCPTargetEXEExists) {
-                Write-Error "The $winSCPexeFile file version $winSCPVersion";
-                Write-Error "It was not properly copied to the target folder `'$bizTalkInstallFolder`'.";
+    $copySourceSummary = if ($WinSCPEXEDownload -and $WinSCPDllDownload) {
+        "$WinSCPEXEDownload and $WinSCPDllDownload"
+    }
+    else {
+        "WinSCP package files for version $winSCPVersion"
+    }
+    if ($PSCmdlet.ShouldProcess("$copySourceSummary to `'$bizTalkInstallFolder`'", "Copy Files")) {
+        try {
+            Copy-Item -Path $WinSCPEXEDownload -Destination $bizTalkInstallFolder -Force -ErrorAction Stop
+            Copy-Item -Path $WinSCPDllDownload -Destination $bizTalkInstallFolder -Force -ErrorAction Stop
+            $WinSCPTargetEXEExists = Test-Path $btsTargetWinSCPExe
+            $WinSCPDLLTargetExists = Test-Path $btsTargetWinSCPDll
+            if ($WinSCPTargetEXEExists -and $WinSCPDLLTargetExists) {
+                $btsWinSCPProductInstalledAndCorrect = $true;
             }
-            if (-not $WinSCPDLLTargetExists) {
+            else {
                 $Continue = $false
-                Write-Error "The $winSCPdllFile file version $winSCPVersion";
-                Write-Error "Was not properly copied to the target folder `'$bizTalkInstallFolder`'.";
-            }  
+                if (-not $WinSCPTargetEXEExists) {
+                    Write-Error "The $winSCPexeFile file version $winSCPVersion";
+                    Write-Error "It was not properly copied to the target folder `'$bizTalkInstallFolder`'.";
+                }
+                if (-not $WinSCPDLLTargetExists) {
+                    $Continue = $false
+                    Write-Error "The $winSCPdllFile file version $winSCPVersion";
+                    Write-Error "Was not properly copied to the target folder `'$bizTalkInstallFolder`'.";
+                }
+            }
+        }
+        catch {
+            $Continue = $false
+            Write-Error "Failed to copy WinSCP files to the BizTalk installation folder."
+            Write-Error "$($_.Exception.Message)"
         }
     }
 }
@@ -748,8 +760,14 @@ if ($btsWinSCPProductInstalledAndCorrect) {
 }
 elseif (-not $WhatIfPreference) {
     Write-Error "`n$bangString";
-    Write-Error "Something went wrong during installation and the installation did not work.";
-    Write-Error "Please inspect the errors above and resolve them.";
+    if ($PrerequisiteFailure) {
+        Write-Error "Installation did not run because one or more prerequisites were not met.";
+        Write-Error "Please address the prerequisite errors above and rerun the script.";
+    }
+    else {
+        Write-Error "Something went wrong during installation and the installation did not work.";
+        Write-Error "Please inspect the errors above and resolve them.";
+    }
     Write-Error "Exiting...";
     Write-Error "$bangString";
 }
