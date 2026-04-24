@@ -59,109 +59,14 @@ Param(
     [switch]$ForceInstall
 )
 #####################################################################
-# Function to serach for specific Microsoft BizTalk Server Cumulative updates
+# Import core module functions used by this installer workflow
 #####################################################################
-function Search-BTSCumulativeUpdate {
-    Param(
-        [string] $CumulativeUpdateID,
-        [string] $BizTalkVersion
-    )
-
-    $uninstallPaths = @(
-        "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
-        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
-    )
-
-    $installedApps = foreach ($path in $uninstallPaths) {
-        Get-ItemProperty -Path $path -ErrorAction SilentlyContinue
-    }
-
-    return [bool]($installedApps | Where-Object {
-        $name = [string]$_.DisplayName
-        if ([string]::IsNullOrWhiteSpace($name)) {
-            return $false
-        }
-
-        # Normalize whitespace and match key tokens with relaxed ordering.
-        $normalized = ($name -replace '\s+', ' ').Trim()
-        $hasBizTalkVersion = $normalized -match "(?i)\bBizTalk\b.*\b$BizTalkVersion\b"
-        $hasKB = $normalized -match "(?i)\bKB\D*$CumulativeUpdateID\b"
-        return ($hasBizTalkVersion -and $hasKB)
-    })
+$coreModulePath = Join-Path $PSScriptRoot "src\InstallWinSCPForBizTalk.Core.psm1"
+if (-not (Test-Path $coreModulePath)) {
+    throw "Required core module was not found: $coreModulePath"
 }
+Import-Module $coreModulePath
 
-#####################################################################
-# Function to detect BizTalk cumulative update from DisplayName
-#####################################################################
-function Get-BTSCumulativeUpdateByDisplayName {
-    Param(
-        [string] $BizTalkVersion
-    )
-
-    $uninstallPaths = @(
-        "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
-        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
-    )
-
-    $installedApps = foreach ($path in $uninstallPaths) {
-        Get-ItemProperty -Path $path -ErrorAction SilentlyContinue
-    }
-
-    $cuMatches = foreach ($app in $installedApps) {
-        $displayName = [string]$app.DisplayName
-        if ([string]::IsNullOrWhiteSpace($displayName)) {
-            continue
-        }
-
-        $normalized = ($displayName -replace '\s+', ' ').Trim()
-        $hasBizTalkVersion = $normalized -match "(?i)\bBizTalk\b.*\b$BizTalkVersion\b"
-        $hasCuMarker = $normalized -match '(?i)\b(Cumulative\s*Update|CU\s*\d+)\b'
-
-        if ($hasBizTalkVersion -and $hasCuMarker) {
-            $cuNumber = $null
-            $kbNumber = $null
-
-            if ($normalized -match '(?i)Cumulative\s*Update\s*(\d+)') {
-                $cuNumber = [int]$Matches[1]
-            }
-            elseif ($normalized -match '(?i)\bCU\s*(\d+)\b') {
-                $cuNumber = [int]$Matches[1]
-            }
-
-            if ($normalized -match '(?i)\bKB\D*(\d{6,8})\b') {
-                $kbNumber = $Matches[1]
-            }
-
-            if ($cuNumber) {
-                [pscustomobject]@{
-                    CUNumber = $cuNumber
-                    KB = $kbNumber
-                    DisplayName = $displayName
-                    InstallDate = $app.InstallDate
-                }
-            }
-        }
-    }
-
-    $bestMatch = $cuMatches | Sort-Object -Property CUNumber, InstallDate -Descending | Select-Object -First 1
-    if ($bestMatch) {
-        return [pscustomobject]@{
-            Found = $true
-            CUNumber = $bestMatch.CUNumber
-            KB = $bestMatch.KB
-            DisplayName = $bestMatch.DisplayName
-            InstallDate = $bestMatch.InstallDate
-        }
-    }
-
-    return [pscustomobject]@{
-        Found = $false
-        CUNumber = 0
-        KB = $null
-        DisplayName = $null
-        InstallDate = $null
-    }
-}
 #####################################################################
 # Function to write an error
 #####################################################################
@@ -178,80 +83,6 @@ function Write-Success {
 }
 
 #####################################################################
-# Function to test if current session runs elevated
-#####################################################################
-function Test-IsAdministrator {
-    $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
-    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-}
-
-#####################################################################
-# Function to resolve WinSCP package layout from extracted NuGet files
-#####################################################################
-function Resolve-WinSCPPackageLayout {
-    Param(
-        [string] $PackageRoot,
-        [string] $ExeFileName,
-        [string] $DllFileName
-    )
-
-    $resolvedExe = $null
-    $resolvedDll = $null
-
-    if (-not (Test-Path $PackageRoot)) {
-        return [pscustomobject]@{
-            ExePath = $null
-            DllPath = $null
-            IsResolved = $false
-        }
-    }
-
-    $exeCandidates = @(
-        (Join-Path $PackageRoot "tools\$ExeFileName"),
-        (Join-Path $PackageRoot "content\$ExeFileName")
-    )
-    $dllCandidates = @(
-        (Join-Path $PackageRoot "lib\netstandard2.0\$DllFileName"),
-        (Join-Path $PackageRoot "lib\netstandard\$DllFileName"),
-        (Join-Path $PackageRoot "lib\net\$DllFileName"),
-        (Join-Path $PackageRoot "lib\$DllFileName")
-    )
-
-    foreach ($candidate in $exeCandidates) {
-        if (Test-Path $candidate) {
-            $resolvedExe = $candidate
-            break
-        }
-    }
-
-    foreach ($candidate in $dllCandidates) {
-        if (Test-Path $candidate) {
-            $resolvedDll = $candidate
-            break
-        }
-    }
-
-    if (-not $resolvedExe) {
-        $exeFile = Get-ChildItem -Path $PackageRoot -Recurse -File -Filter $ExeFileName -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($exeFile) {
-            $resolvedExe = $exeFile.FullName
-        }
-    }
-
-    if (-not $resolvedDll) {
-        $dllFile = Get-ChildItem -Path $PackageRoot -Recurse -File -Filter $DllFileName -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($dllFile) {
-            $resolvedDll = $dllFile.FullName
-        }
-    }
-
-    return [pscustomobject]@{
-        ExePath = $resolvedExe
-        DllPath = $resolvedDll
-        IsResolved = [bool]($resolvedExe -and $resolvedDll)
-    }
-}
 # Default $Continue flag to true, set to false to end the process
 $Continue = $true;
 $PrerequisiteFailure = $false;

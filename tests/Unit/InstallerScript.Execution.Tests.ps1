@@ -6,6 +6,8 @@ Describe "InstallWinSCPForBizTalk script execution" {
     BeforeAll {
         $script:repoRoot = Resolve-Path (Join-Path (Split-Path -Parent $PSCommandPath) "../..")
         $script:installerPath = Join-Path $script:repoRoot "InstallWinSCPForBizTalk.ps1"
+        $script:coreModulePath = Join-Path $script:repoRoot "src\InstallWinSCPForBizTalk.Core.psm1"
+        Import-Module $script:coreModulePath -Force
     }
 
     BeforeEach {
@@ -51,7 +53,7 @@ Describe "InstallWinSCPForBizTalk script execution" {
         Set-Content -Path (Join-Path $dllPath "WinSCPnet.dll") -Value "fake dll" -Encoding ASCII
         Set-Content -Path (Join-Path $script:nugetFolder "nuget.exe") -Value "fake nuget" -Encoding ASCII
 
-        Mock Get-ItemProperty { @() }
+        Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
 
         & $script:installerPath -nugetDownloadFolder $script:nugetFolder -Confirm:$false
 
@@ -69,7 +71,7 @@ Describe "InstallWinSCPForBizTalk script execution" {
         Set-Content -Path (Join-Path $dllPath "WinSCPnet.dll") -Value "fake dll" -Encoding ASCII
         Set-Content -Path (Join-Path $script:nugetFolder "nuget.exe") -Value "fake nuget" -Encoding ASCII
 
-        Mock Get-ItemProperty {
+        Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty {
             @(
                 [pscustomobject]@{
                     DisplayName = "Microsoft BizTalk Server 2020 Cumulative Update 6 KB5048971"
@@ -95,7 +97,7 @@ Describe "InstallWinSCPForBizTalk script execution" {
             }
         } -ParameterFilter { $Path -eq "HKLM:\SOFTWARE\Microsoft\BizTalk Server\3.0" }
 
-        Mock Get-ItemProperty {
+        Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty {
             @(
                 [pscustomobject]@{ DisplayName = "Microsoft BizTalk Server 2016 Cumulative Update 9 KB5005479" }
             )
@@ -122,7 +124,7 @@ Describe "InstallWinSCPForBizTalk script execution" {
         $toolsPath = Join-Path $packageRoot "tools"
         $dllPath = Join-Path $packageRoot "lib/netstandard2.0"
 
-        Mock Get-ItemProperty { @() }
+        Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
 
         # Invoke-WebRequest is only used to hydrate nuget.exe when not present.
         Mock Invoke-WebRequest {
@@ -145,7 +147,7 @@ Describe "InstallWinSCPForBizTalk script execution" {
 
     It "completes successfully in WhatIf mode without creating target binaries" {
         Set-Content -Path (Join-Path $script:nugetFolder "nuget.exe") -Value "fake nuget" -Encoding ASCII
-        Mock Get-ItemProperty { @() }
+        Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
 
         & $script:installerPath -nugetDownloadFolder $script:nugetFolder -Confirm:$false -WhatIf
 
@@ -163,7 +165,7 @@ Describe "InstallWinSCPForBizTalk script execution" {
         Set-Content -Path (Join-Path $dllPath "WinSCPnet.dll") -Value "fake dll" -Encoding ASCII
         Set-Content -Path (Join-Path $script:nugetFolder "nuget.exe") -Value "fake nuget" -Encoding ASCII
 
-        Mock Get-ItemProperty { @() }
+        Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
 
         & $script:installerPath -nugetDownloadFolder $script:nugetFolder -ForceInstall -WhatIf -Confirm:$false
 
@@ -182,7 +184,7 @@ Describe "InstallWinSCPForBizTalk script execution" {
             }
         } -ParameterFilter { $Path -eq "HKLM:\SOFTWARE\Microsoft\BizTalk Server\3.0" }
 
-        Mock Get-ItemProperty { @() }
+        Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
 
         & $script:installerPath -nugetDownloadFolder $script:nugetFolder -Confirm:$false
 
