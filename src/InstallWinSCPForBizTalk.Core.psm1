@@ -437,4 +437,165 @@ function Get-FinalExecutionOutcome {
     }
 }
 
-Export-ModuleMember -Function Resolve-WinSCPPackageLayout, Search-BTSCumulativeUpdate, Get-BTSCumulativeUpdateByDisplayName, Test-IsAdministrator, Get-InstallExecutionPlan, Test-WinSCPVersionString, Get-PackageReadinessState, Get-FinalExecutionOutcome
+#####################################################################
+# Function to map a BizTalk product code to a version label
+#####################################################################
+function Get-BizTalkVersionFromProductCode {
+    <#
+    .SYNOPSIS
+    Maps a BizTalk Server product code GUID to a version label string.
+
+    .OUTPUTS
+    '2016', '2020', or $null for unrecognised product codes.
+    #>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [string] $ProductCode
+    )
+
+    $BizTalk2016ProductCode = '{B084F3A7-3E8F-4E7B-B673-EED1715D28ED}'
+    $BizTalk2020ProductCode = '{205F5836-7512-4A06-9E74-ADC8AFA0EEC5}'
+
+    if ($ProductCode -eq $BizTalk2020ProductCode) { return '2020' }
+    if ($ProductCode -eq $BizTalk2016ProductCode) { return '2016' }
+    return $null
+}
+
+#####################################################################
+# Function to select the correct WinSCP version for a BizTalk install
+#####################################################################
+function Get-WinSCPVersionForBizTalk {
+    <#
+    .SYNOPSIS
+    Detects the installed BizTalk CU and returns the required WinSCP version.
+
+    .DESCRIPTION
+    Combines display-name CU detection and KB-based fallback search to select
+    the correct WinSCP version for the given BizTalk major version.
+    Returns a structured object, or $null for unsupported BizTalk versions.
+
+    .OUTPUTS
+    [pscustomobject] with WinSCPVersion, CULabel, KB, CUFound — or $null.
+    #>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string] $BizTalkVersion
+    )
+
+    $winSCPVersion = $null
+    $btsKB         = 'none'
+    $bizTalkCUVer  = 'no CU'
+    $CUFound       = $false
+
+    if ($BizTalkVersion -eq '2020') {
+        $winSCPVersion = '5.15.4'
+        # CU   Build       KB(s)                 Release Date       WinSCP
+        # CU6  3.13.895.0  5043408, 5048971      November 21, 2024  6.3.5
+        # CU5  3.13.867.0  5032870               December 3, 2023   6.1.2
+        # CU4  3.13.844.0  5009901               August 22, 2022    5.19.2
+        # CU3  3.13.812.0  5007969               November 22, 2021  5.19.2
+        # CU2  3.13.785.0  5003151               April 19, 2021     5.17.8
+        # CU1  3.13.759.0  4538666               July 28, 2020      5.17.6
+        # RTM  3.13.717.0  NA                    January 15, 2020   5.15.4
+        $bts2020CUMap = @{
+            6 = @{ KBs = @('5043408', '5048971'); WinSCP = '6.3.5' }
+            5 = @{ KBs = @('5032870');             WinSCP = '6.1.2' }
+            4 = @{ KBs = @('5009901');             WinSCP = '5.19.2' }
+            3 = @{ KBs = @('5007969');             WinSCP = '5.19.2' }
+            2 = @{ KBs = @('5003151');             WinSCP = '5.17.8' }
+            1 = @{ KBs = @('4538666');             WinSCP = '5.17.6' }
+        }
+
+        $detected = Get-BTSCumulativeUpdateByDisplayName -BizTalkVersion $BizTalkVersion
+        if ($detected.Found -and $bts2020CUMap.ContainsKey([int]$detected.CUNumber)) {
+            $cuNumber     = [int]$detected.CUNumber
+            $cuEntry      = $bts2020CUMap[$cuNumber]
+            $bizTalkCUVer = "CU$cuNumber"
+            $btsKB        = if ($detected.KB) { $detected.KB } else { $cuEntry.KBs[0] }
+            $winSCPVersion = $cuEntry.WinSCP
+            $CUFound      = $true
+        }
+
+        if (-not $CUFound) {
+            foreach ($cuNumber in @(6, 5, 4, 3, 2, 1)) {
+                $cuEntry = $bts2020CUMap[$cuNumber]
+                foreach ($kb in $cuEntry.KBs) {
+                    if (Search-BTSCumulativeUpdate -CumulativeUpdateID $kb -BizTalkVersion $BizTalkVersion) {
+                        $bizTalkCUVer  = "CU$cuNumber"
+                        $btsKB         = $kb
+                        $winSCPVersion = $cuEntry.WinSCP
+                        $CUFound       = $true
+                        break
+                    }
+                }
+                if ($CUFound) { break }
+            }
+        }
+    }
+    elseif ($BizTalkVersion -eq '2016') {
+        $winSCPVersion = '5.7.7'
+        # Label         Build       KB        Release Date       WinSCP
+        # CU9 and FP3   3.13.357.2  5005480   September 29, 2021 5.19.2
+        # CU9           3.12.896.2  5005479   August 25, 2021    5.19.2
+        # CU8 and FP3   3.13.349.2  4590075   January 6, 2021    5.15.9
+        # CU8           3.12.880.2  4583530   December 7, 2020   5.15.9
+        # CU7 and FP3   3.13.340.2  4536185   January 22, 2020   5.15.9
+        # CU7           3.12.859.2  4528776   January 22, 2020   5.15.9
+        # CU6 and FP3   3.12.843.2  4294900   February 7, 2019   5.13.1
+        # CU6           3.12.843.2  4477494   February 28, 2019  5.13.1
+        # CU5 and FP3   3.13.324.2  4103503   June 25, 2018      5.13.1
+        # CU5 Hotfix    3.12.834.2  4345385   November 14, 2018  5.13.1
+        # CU5           3.12.834.2  4132957   June 25, 2018      5.13.1
+        # CU4 and FP2   3.13.252.2  4094130   April 2, 2018      5.7.7
+        # CU4           3.12.823.2  4051353   January 30, 2018   5.7.7
+        # CU3 and FP2   3.13.247.2  4054819   November 21, 2017  5.7.7
+        # CU3 and FU1   3.13.177.2  4014788   November 15, 2017  5.7.7
+        # CU3           3.12.815.2  4039664   September 1, 2017  5.7.7
+        # CU2 or FU1    3.12.807.2  4021095   May 26, 2017       5.7.7
+        # CU1           3.12.796.2  3208238   January 26, 2017   5.7.7
+        # RTM           3.12.774.0  NA        September 30, 2016 5.7.7
+        $bts2016UpdateMap = @(
+            @{ Label = 'CU9 and FP3'; KB = '5005480'; WinSCP = '5.19.2' }
+            @{ Label = 'CU9';         KB = '5005479'; WinSCP = '5.19.2' }
+            @{ Label = 'CU8 and FP3'; KB = '4590075'; WinSCP = '5.15.9' }
+            @{ Label = 'CU8';         KB = '4583530'; WinSCP = '5.15.9' }
+            @{ Label = 'CU7 and FP3'; KB = '4536185'; WinSCP = '5.15.9' }
+            @{ Label = 'CU7';         KB = '4528776'; WinSCP = '5.15.9' }
+            @{ Label = 'CU6 and FP3'; KB = '4294900'; WinSCP = '5.13.1' }
+            @{ Label = 'CU6';         KB = '4477494'; WinSCP = '5.13.1' }
+            @{ Label = 'CU5 and FP3'; KB = '4103503'; WinSCP = '5.13.1' }
+            @{ Label = 'CU5 Hotfix';  KB = '4345385'; WinSCP = '5.13.1' }
+            @{ Label = 'CU5';         KB = '4132957'; WinSCP = '5.13.1' }
+            @{ Label = 'CU4 and FP2'; KB = '4094130'; WinSCP = '5.7.7' }
+            @{ Label = 'CU4';         KB = '4051353'; WinSCP = '5.7.7' }
+            @{ Label = 'CU3 and FP2'; KB = '4054819'; WinSCP = '5.7.7' }
+            @{ Label = 'CU3 and FU1'; KB = '4014788'; WinSCP = '5.7.7' }
+            @{ Label = 'CU3';         KB = '4039664'; WinSCP = '5.7.7' }
+            @{ Label = 'CU2 or FU1';  KB = '4021095'; WinSCP = '5.7.7' }
+            @{ Label = 'CU1';         KB = '3208238'; WinSCP = '5.7.7' }
+        )
+
+        foreach ($update in $bts2016UpdateMap) {
+            if (Search-BTSCumulativeUpdate -CumulativeUpdateID $update.KB -BizTalkVersion $BizTalkVersion) {
+                $winSCPVersion = $update.WinSCP
+                $btsKB         = $update.KB
+                $bizTalkCUVer  = $update.Label
+                $CUFound       = $true
+                break
+            }
+        }
+    }
+    else {
+        return $null
+    }
+
+    return [pscustomobject]@{
+        WinSCPVersion = $winSCPVersion
+        CULabel       = $bizTalkCUVer
+        KB            = $btsKB
+        CUFound       = $CUFound
+    }
+}
+
+Export-ModuleMember -Function Resolve-WinSCPPackageLayout, Search-BTSCumulativeUpdate, Get-BTSCumulativeUpdateByDisplayName, Test-IsAdministrator, Get-InstallExecutionPlan, Test-WinSCPVersionString, Get-PackageReadinessState, Get-FinalExecutionOutcome, Get-BizTalkVersionFromProductCode, Get-WinSCPVersionForBizTalk
