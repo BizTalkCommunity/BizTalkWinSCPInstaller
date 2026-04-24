@@ -32,8 +32,14 @@ function Resolve-WinSCPPackageLayout {
     Resolve-WinSCPPackageLayout -PackageRoot "C:\temp\WinSCP.5.19.2" -ExeFileName "WinSCP.exe" -DllFileName "WinSCPnet.dll"
     #>
     Param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string] $PackageRoot,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string] $ExeFileName,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
         [string] $DllFileName
     )
 
@@ -52,6 +58,7 @@ function Resolve-WinSCPPackageLayout {
         (Join-Path $PackageRoot "tools\$ExeFileName"),
         (Join-Path $PackageRoot "content\$ExeFileName")
     )
+    # Keep both netstandard2.0 and netstandard for historical WinSCP NuGet layouts.
     $dllCandidates = @(
         (Join-Path $PackageRoot "lib\netstandard2.0\$DllFileName"),
         (Join-Path $PackageRoot "lib\netstandard\$DllFileName"),
