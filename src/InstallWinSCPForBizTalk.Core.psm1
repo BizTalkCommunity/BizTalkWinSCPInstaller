@@ -341,6 +341,187 @@ function Test-WinSCPVersionString {
 }
 
 #####################################################################
+# Function to resolve BizTalk install folder from env/registry inputs
+#####################################################################
+function Resolve-BizTalkInstallFolder {
+    <#
+    .SYNOPSIS
+    Selects the BizTalk install folder candidate from environment and registry.
+
+    .DESCRIPTION
+    Prefers the environment value when present; otherwise falls back to registry.
+    Returns the selected path and basic source/existence metadata.
+    #>
+    Param(
+        [string]$EnvironmentInstallPath,
+        [string]$RegistryInstallPath
+    )
+
+    $selectedPath = $null
+    $source = 'None'
+
+    if (-not [string]::IsNullOrWhiteSpace($EnvironmentInstallPath)) {
+        $selectedPath = $EnvironmentInstallPath
+        $source = 'Environment'
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($RegistryInstallPath)) {
+        $selectedPath = $RegistryInstallPath
+        $source = 'Registry'
+    }
+
+    return [pscustomobject]@{
+        InstallPath = $selectedPath
+        Source = $source
+        IsFound = -not [string]::IsNullOrWhiteSpace($selectedPath)
+        Exists = [bool]($selectedPath -and (Test-Path $selectedPath))
+    }
+}
+
+#####################################################################
+# Function to evaluate whether NuGet should be downloaded
+#####################################################################
+function Get-NuGetDownloadPlan {
+    <#
+    .SYNOPSIS
+    Returns a plan object for NuGet acquisition behavior.
+    #>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [bool]$TargetNugetExeAlreadyExists,
+        [Parameter(Mandatory = $true)]
+        [bool]$ForceInstall,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$SourceNugetExe,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$TargetNugetExe
+    )
+
+    $shouldDownload = (-not $TargetNugetExeAlreadyExists -or $ForceInstall)
+
+    return [pscustomobject]@{
+        ShouldDownload = $shouldDownload
+        ShouldReuseExisting = (-not $shouldDownload)
+        ShouldProcessTarget = "$SourceNugetExe -OutFile $TargetNugetExe"
+    }
+}
+
+#####################################################################
+# Function to evaluate whether WinSCP package should be downloaded
+#####################################################################
+function Get-WinSCPPackageDownloadPlan {
+    <#
+    .SYNOPSIS
+    Returns a plan object for WinSCP package acquisition behavior.
+    #>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [bool]$WinSCPEXEAlreadyExists,
+        [Parameter(Mandatory = $true)]
+        [bool]$WinSCPDLLAlreadyExists,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$TargetNugetExe,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$WinSCPVersion,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$NugetDownloadFolder
+    )
+
+    $commandPreview = "'$TargetNugetExe' Install WinSCP -Version $WinSCPVersion -NonInteractive -OutputDirectory '$NugetDownloadFolder'"
+    $shouldDownload = (-not $WinSCPEXEAlreadyExists -or -not $WinSCPDLLAlreadyExists)
+
+    return [pscustomobject]@{
+        ShouldDownload = $shouldDownload
+        CommandPreview = $commandPreview
+    }
+}
+
+#####################################################################
+# Function to copy and validate WinSCP files into BizTalk folder
+#####################################################################
+function Invoke-WinSCPTargetInstall {
+    <#
+    .SYNOPSIS
+    Copies WinSCP binaries to BizTalk folder and validates target presence.
+    #>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$SourceExePath,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$SourceDllPath,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$TargetFolder,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$TargetExePath,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$TargetDllPath,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$WinSCPVersion,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$ExeFileName,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$DllFileName
+    )
+
+    try {
+        Copy-Item -Path $SourceExePath -Destination $TargetFolder -Force -ErrorAction Stop
+        Copy-Item -Path $SourceDllPath -Destination $TargetFolder -Force -ErrorAction Stop
+
+        $targetExeExists = Test-Path $TargetExePath
+        $targetDllExists = Test-Path $TargetDllPath
+
+        if ($targetExeExists -and $targetDllExists) {
+            return [pscustomobject]@{
+                InstalledSuccessfully = $true
+                TargetExeExists = $targetExeExists
+                TargetDllExists = $targetDllExists
+                ErrorMessages = @()
+            }
+        }
+
+        $errorMessages = @()
+        if (-not $targetExeExists) {
+            $errorMessages += "The $ExeFileName file version $WinSCPVersion"
+            $errorMessages += "It was not properly copied to the target folder '$TargetFolder'."
+        }
+        if (-not $targetDllExists) {
+            $errorMessages += "The $DllFileName file version $WinSCPVersion"
+            $errorMessages += "Was not properly copied to the target folder '$TargetFolder'."
+        }
+
+        return [pscustomobject]@{
+            InstalledSuccessfully = $false
+            TargetExeExists = $targetExeExists
+            TargetDllExists = $targetDllExists
+            ErrorMessages = $errorMessages
+        }
+    }
+    catch {
+        return [pscustomobject]@{
+            InstalledSuccessfully = $false
+            TargetExeExists = $false
+            TargetDllExists = $false
+            ErrorMessages = @(
+                'Failed to copy WinSCP files to the BizTalk installation folder.'
+                "$($_.Exception.Message)"
+            )
+        }
+    }
+}
+
+#####################################################################
 # Function to classify package/download readiness
 #####################################################################
 function Get-PackageReadinessState {
@@ -598,4 +779,4 @@ function Get-WinSCPVersionForBizTalk {
     }
 }
 
-Export-ModuleMember -Function Resolve-WinSCPPackageLayout, Search-BTSCumulativeUpdate, Get-BTSCumulativeUpdateByDisplayName, Test-IsAdministrator, Get-InstallExecutionPlan, Test-WinSCPVersionString, Get-PackageReadinessState, Get-FinalExecutionOutcome, Get-BizTalkVersionFromProductCode, Get-WinSCPVersionForBizTalk
+Export-ModuleMember -Function Resolve-WinSCPPackageLayout, Search-BTSCumulativeUpdate, Get-BTSCumulativeUpdateByDisplayName, Test-IsAdministrator, Get-InstallExecutionPlan, Test-WinSCPVersionString, Resolve-BizTalkInstallFolder, Get-NuGetDownloadPlan, Get-WinSCPPackageDownloadPlan, Invoke-WinSCPTargetInstall, Get-PackageReadinessState, Get-FinalExecutionOutcome, Get-BizTalkVersionFromProductCode, Get-WinSCPVersionForBizTalk
