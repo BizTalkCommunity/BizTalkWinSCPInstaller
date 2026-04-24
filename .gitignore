@@ -1,0 +1,24 @@
+# PowerShell
+*.log
+*.old
+
+# Visual Studio
+.vs/
+*.sln.iml
+.vscode/settings.json
+
+# Pester
+TestResults.xml
+
+# Temp/working
+temp/
+tmp/
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# NuGet
+packages/
+*.nupkg
