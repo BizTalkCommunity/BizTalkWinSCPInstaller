@@ -19,6 +19,20 @@ Or run a specific test file:
 Invoke-Pester tests/Unit/Resolve-WinSCPPackageLayout.Tests.ps1 -Verbose
 ```
 
+## Test Suite
+
+### Current Tests
+
+| Test File | Function | Coverage |
+|-----------|----------|----------|
+| `Resolve-WinSCPPackageLayout.Tests.ps1` | `Resolve-WinSCPPackageLayout` | Package layout resolution: known paths, missing root, recursive fallback, partial resolution |
+
+### Planned Tests (Stage 2+)
+
+- `CuDetection.Tests.ps1` — `Get-BTSCumulativeUpdateByDisplayName`, `Search-BTSCumulativeUpdate` — CU/KB mapping, DisplayName parsing, registry detection
+- `AdminCheck.Tests.ps1` — `Test-IsAdministrator` — Elevation detection, non-admin context
+- `InstallFlow.Tests.ps1` — Installation orchestration — Full flow with mocked downloads, registry checks, file copies
+
 ## Current stage
 
 **Stage 1**: Scaffolding core functions and basic unit tests.

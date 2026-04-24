@@ -25,9 +25,9 @@ Describe "Resolve-WinSCPPackageLayout" {
                 -ExeFileName "WinSCP.exe" `
                 -DllFileName "WinSCPnet.dll"
 
-            $result.IsResolved | Should -Be $true
-            $result.ExePath | Should -Match "tools\\WinSCP\.exe$"
-            $result.DllPath | Should -Match "lib\\netstandard2\.0\\WinSCPnet\.dll$"
+            $result.IsResolved | Should Be $true
+            $result.ExePath | Should Match "tools\\WinSCP\.exe$"
+            $result.DllPath | Should Match "lib\\netstandard2\.0\\WinSCPnet\.dll$"
         }
     }
 
@@ -42,9 +42,9 @@ Describe "Resolve-WinSCPPackageLayout" {
                 -ExeFileName "WinSCP.exe" `
                 -DllFileName "WinSCPnet.dll"
 
-            $result.IsResolved | Should -Be $false
-            $result.ExePath | Should -Be $null
-            $result.DllPath | Should -Be $null
+            $result.IsResolved | Should Be $false
+            $result.ExePath | Should Be $null
+            $result.DllPath | Should Be $null
         }
     }
 
@@ -74,9 +74,9 @@ Describe "Resolve-WinSCPPackageLayout" {
                 -ExeFileName "WinSCP.exe" `
                 -DllFileName "WinSCPnet.dll"
 
-            $result.IsResolved | Should -Be $true
-            $result.ExePath | Should -Match "WinSCP\.exe$"
-            $result.DllPath | Should -Match "WinSCPnet\.dll$"
+            $result.IsResolved | Should Be $true
+            $result.ExePath | Should Match "WinSCP\.exe$"
+            $result.DllPath | Should Match "WinSCPnet\.dll$"
         }
     }
 
@@ -95,9 +95,9 @@ Describe "Resolve-WinSCPPackageLayout" {
                 -ExeFileName "WinSCP.exe" `
                 -DllFileName "WinSCPnet.dll"
 
-            $result.IsResolved | Should -Be $false
-            $result.ExePath | Should -Not -Be $null
-            $result.DllPath | Should -Be $null
+            $result.IsResolved | Should Be $false
+            $result.ExePath | Should Not Be $null
+            $result.DllPath | Should Be $null
         }
     }
 }
