@@ -219,4 +219,88 @@ function Get-BTSCumulativeUpdateByDisplayName {
     }
 }
 
-Export-ModuleMember -Function Resolve-WinSCPPackageLayout, Search-BTSCumulativeUpdate, Get-BTSCumulativeUpdateByDisplayName
+#####################################################################
+# Function to test if current session runs elevated
+#####################################################################
+function Test-IsAdministrator {
+    <#
+    .SYNOPSIS
+    Returns true when the current identity is in the local Administrators role.
+
+    .DESCRIPTION
+    Supports dependency injection for unit tests by allowing callers to provide
+    custom scriptblocks for identity and principal construction.
+    #>
+    Param(
+        [scriptblock]$GetCurrentIdentity = { [Security.Principal.WindowsIdentity]::GetCurrent() },
+        [scriptblock]$NewPrincipal = {
+            param($Identity)
+            New-Object Security.Principal.WindowsPrincipal($Identity)
+        }
+    )
+
+    $currentIdentity = & $GetCurrentIdentity
+    $principal = & $NewPrincipal $currentIdentity
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+#####################################################################
+# Function to evaluate install-gating behavior
+#####################################################################
+function Get-InstallExecutionPlan {
+    <#
+    .SYNOPSIS
+    Evaluates whether install steps should proceed based on current flags/state.
+    #>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [bool]$IsAdministrator,
+        [Parameter(Mandatory = $true)]
+        [bool]$ForceInstall,
+        [Parameter(Mandatory = $true)]
+        [bool]$WhatIf,
+        [Parameter(Mandatory = $true)]
+        [bool]$AlreadyInstalledCorrect
+    )
+
+    $canProceed = $true
+    $prerequisiteFailure = $false
+    $shouldSkipBecauseInstalled = $false
+    $shouldReinstall = $false
+    $requiresElevationWarning = $false
+
+    # Match script behavior: non-admin + ForceInstall is a hard stop unless WhatIf.
+    if (-not $IsAdministrator -and $ForceInstall) {
+        if (-not $WhatIf) {
+            $canProceed = $false
+            $prerequisiteFailure = $true
+        }
+        else {
+            $requiresElevationWarning = $true
+        }
+    }
+
+    if ($AlreadyInstalledCorrect) {
+        if ($ForceInstall) {
+            $shouldReinstall = $true
+        }
+        else {
+            $canProceed = $false
+            $shouldSkipBecauseInstalled = $true
+        }
+    }
+
+    if ($canProceed -and -not $IsAdministrator -and -not $ForceInstall) {
+        $requiresElevationWarning = $true
+    }
+
+    return [pscustomobject]@{
+        CanProceed = $canProceed
+        PrerequisiteFailure = $prerequisiteFailure
+        ShouldSkipBecauseInstalled = $shouldSkipBecauseInstalled
+        ShouldReinstall = $shouldReinstall
+        RequiresElevationWarning = $requiresElevationWarning
+    }
+}
+
+Export-ModuleMember -Function Resolve-WinSCPPackageLayout, Search-BTSCumulativeUpdate, Get-BTSCumulativeUpdateByDisplayName, Test-IsAdministrator, Get-InstallExecutionPlan
