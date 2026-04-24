@@ -8,7 +8,7 @@ Describe "Cyclomatic complexity gates" {
         $script:complexityTargets = @(
             @{
                 Path = Join-Path $script:repoRoot "InstallWinSCPForBizTalk.ps1"
-                MaxScriptBodyComplexity = 49
+                MaxScriptBodyComplexity = 46
                 MaxFunctionComplexity = 12
             },
             @{

@@ -231,6 +231,7 @@ Write-Verbose "`$CUFound       = $CUFound";
 $btsWinSCPEXEProductVersionInstalled = "None";
 $btsWinSCPDLLProductVersionInstalled = "None";
 $btsWinSCPProductInstalledAndCorrect = $false;
+$installExecutionPlan = $null
 $winSCPProductVersionRequired = $winSCPVersion;
 $btsTargetWinSCPExe = $bizTalkInstallFolder + $winSCPexeFile;
 $btsTargetWinSCPDll = $bizTalkInstallFolder + $winSCPdllFile;
@@ -249,14 +250,15 @@ if ($Continue) {
             $btsWinSCPProductInstalledAndCorrect = $true;
         }
     }
+    $installExecutionPlan = Get-InstallExecutionPlan -IsAdministrator $isAdministrator -ForceInstall ([bool]$ForceInstall) -WhatIf ([bool]$WhatIfPreference) -AlreadyInstalledCorrect $btsWinSCPProductInstalledAndCorrect
     if ($btsWinSCPProductInstalledAndCorrect) {
         Write-Success "Detected WinSCP $winSCPVersion is already installed in Microsoft BizTalk Server.";
-        if ($ForceInstall -and $btsWinSCPProductInstalledAndCorrect) {
+        if ($installExecutionPlan.ShouldReinstall) {
             Write-Success "Reinstalling because ForceInstall was specified.";
             # Force a full reinstall path and only mark success after copy completes.
             $btsWinSCPProductInstalledAndCorrect = $false
         }
-        else {
+        elseif ($installExecutionPlan.ShouldSkipBecauseInstalled) {
             Write-Success "Skipping installing the already installed version.";
             $Continue = $false;
         }
@@ -276,7 +278,7 @@ Write-Verbose "`$btsWinSCPProductInstalledAndCorrect $btsWinSCPProductInstalledA
 Write-Verbose "`$btsTargetWinSCPExe                  $btsTargetWinSCPExe";
 Write-Verbose "`$btsTargetWinSCPDll                  $btsTargetWinSCPDll";
 
-if ($Continue -and -not $isAdministrator -and -not $ForceInstall) {
+if ($Continue -and $installExecutionPlan -and $installExecutionPlan.RequiresElevationWarning -and -not $ForceInstall) {
     Write-Error "`n$bangString"
     Write-Error "This PowerShell session is not running as Administrator."
     Write-Error "The BizTalk installation folder requires elevation for writes: $bizTalkInstallFolder"
@@ -286,13 +288,14 @@ if ($Continue -and -not $isAdministrator -and -not $ForceInstall) {
   
   
 if ($Continue) {
-    $winSCPVersionInfo = $null
-    if (-not [version]::TryParse($winSCPVersion, [ref]$winSCPVersionInfo)) {
+    $versionValidation = Test-WinSCPVersionString -WinSCPVersion $winSCPVersion
+    if (-not $versionValidation.IsValid) {
         $Continue = $false
-        if ([string]::IsNullOrEmpty($winSCPVersion)) {
+        if ($versionValidation.ErrorCode -eq 'MissingVersion') {
             Write-Error "The WinSCP version was not set - the CU detection logic did not assign a value to `$winSCPVersion."
             Write-Error "This is likely a script bug. Review the BizTalk CU detection output above and confirm a CU or RTM baseline was matched."
-        } else {
+        }
+        else {
             Write-Error "The WinSCP version '$winSCPVersion' is not a valid dotted version number (e.g. 5.7.7 or 6.3.5)."
             Write-Error "This value came from the CU map table in this script. Check the WinSCP version string for BizTalk $BizTalkVersion $bizTalkCUVer in the table and correct it."
         }
@@ -486,30 +489,34 @@ Write-Verbose "`$WinSCPDLLTargetExists               $WinSCPDLLTargetExists";
 Write-Verbose "`$btsWinSCPProductInstalledAndCorrect $btsWinSCPProductInstalledAndCorrect";
   
       
-if ($btsWinSCPProductInstalledAndCorrect) {
-    Write-Success "`n$bangString";
-    Write-Success "WinSCP $winSCPVersion is installed.";
-    Write-Success "Microsoft BizTalk Server`'s SFTP Adapter will use this version of WinSCP.";
-    Write-Success "$upString";
-}
-elseif (-not $WhatIfPreference) {
-    Write-Error "`n$bangString";
-    if ($PrerequisiteFailure) {
+$finalOutcome = Get-FinalExecutionOutcome -InstalledSuccessfully $btsWinSCPProductInstalledAndCorrect -WhatIf ([bool]$WhatIfPreference) -PrerequisiteFailure $PrerequisiteFailure -ContinueFlag $Continue
+switch ($finalOutcome.Outcome) {
+    'Success' {
+        Write-Success "`n$bangString";
+        Write-Success "WinSCP $winSCPVersion is installed.";
+        Write-Success "Microsoft BizTalk Server`'s SFTP Adapter will use this version of WinSCP.";
+        Write-Success "$upString";
+    }
+    'DryRun' {
+        Write-Success "`n$bangString";
+        Write-Success "The parameter -WhatIf was set and this script executed without making";
+        Write-Success "any changes and the output should checked to determine if it would have ";
+        Write-Success "run correctly.";
+        Write-Success "$bangString";
+    }
+    'PrerequisiteFailure' {
+        Write-Error "`n$bangString";
         Write-Error "Installation did not run because one or more prerequisites were not met.";
         Write-Error "Please address the prerequisite errors above and rerun the script.";
+        Write-Error "Exiting...";
+        Write-Error "$bangString";
     }
-    else {
+    default {
+        Write-Error "`n$bangString";
         Write-Error "Something went wrong during installation and the installation did not work.";
         Write-Error "Please inspect the errors above and resolve them.";
+        Write-Error "Exiting...";
+        Write-Error "$bangString";
     }
-    Write-Error "Exiting...";
-    Write-Error "$bangString";
-}
-elseif ($WhatIfPreference) {
-    Write-Success "`n$bangString";
-    Write-Success "The parameter -WhatIf was set and this script executed without making";
-    Write-Success "any changes and the output should checked to determine if it would have ";
-    Write-Success "run correctly.";
-    Write-Success "$bangString";
 }
 
