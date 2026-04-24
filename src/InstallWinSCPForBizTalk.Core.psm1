@@ -101,4 +101,122 @@ function Resolve-WinSCPPackageLayout {
     }
 }
 
-Export-ModuleMember -Function Resolve-WinSCPPackageLayout
+#####################################################################
+# Function to search for specific BizTalk cumulative updates
+#####################################################################
+function Search-BTSCumulativeUpdate {
+    <#
+    .SYNOPSIS
+    Detects whether a specific BizTalk CU KB is present in uninstall entries.
+    #>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string] $CumulativeUpdateID,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string] $BizTalkVersion
+    )
+
+    $uninstallPaths = @(
+        "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+
+    $installedApps = foreach ($path in $uninstallPaths) {
+        Get-ItemProperty -Path $path -ErrorAction SilentlyContinue
+    }
+
+    return [bool]($installedApps | Where-Object {
+        $name = [string]$_.DisplayName
+        if ([string]::IsNullOrWhiteSpace($name)) {
+            return $false
+        }
+
+        $normalized = ($name -replace '\s+', ' ').Trim()
+        $hasBizTalkVersion = $normalized -match "(?i)\bBizTalk\b.*\b$BizTalkVersion\b"
+        $hasKB = $normalized -match "(?i)\bKB\D*$CumulativeUpdateID\b"
+        return ($hasBizTalkVersion -and $hasKB)
+    })
+}
+
+#####################################################################
+# Function to detect the highest CU from uninstall DisplayName entries
+#####################################################################
+function Get-BTSCumulativeUpdateByDisplayName {
+    <#
+    .SYNOPSIS
+    Returns the most recent detected BizTalk CU based on uninstall DisplayName.
+    #>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string] $BizTalkVersion
+    )
+
+    $uninstallPaths = @(
+        "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+
+    $installedApps = foreach ($path in $uninstallPaths) {
+        Get-ItemProperty -Path $path -ErrorAction SilentlyContinue
+    }
+
+    $cuMatches = foreach ($app in $installedApps) {
+        $displayName = [string]$app.DisplayName
+        if ([string]::IsNullOrWhiteSpace($displayName)) {
+            continue
+        }
+
+        $normalized = ($displayName -replace '\s+', ' ').Trim()
+        $hasBizTalkVersion = $normalized -match "(?i)\bBizTalk\b.*\b$BizTalkVersion\b"
+        $hasCuMarker = $normalized -match '(?i)\b(Cumulative\s*Update|CU\s*\d+)\b'
+
+        if ($hasBizTalkVersion -and $hasCuMarker) {
+            $cuNumber = $null
+            $kbNumber = $null
+
+            if ($normalized -match '(?i)Cumulative\s*Update\s*(\d+)') {
+                $cuNumber = [int]$Matches[1]
+            }
+            elseif ($normalized -match '(?i)\bCU\s*(\d+)\b') {
+                $cuNumber = [int]$Matches[1]
+            }
+
+            if ($normalized -match '(?i)\bKB\D*(\d{6,8})\b') {
+                $kbNumber = $Matches[1]
+            }
+
+            if ($cuNumber) {
+                [pscustomobject]@{
+                    CUNumber = $cuNumber
+                    KB = $kbNumber
+                    DisplayName = $displayName
+                    InstallDate = $app.InstallDate
+                }
+            }
+        }
+    }
+
+    $bestMatch = $cuMatches | Sort-Object -Property CUNumber, InstallDate -Descending | Select-Object -First 1
+    if ($bestMatch) {
+        return [pscustomobject]@{
+            Found = $true
+            CUNumber = $bestMatch.CUNumber
+            KB = $bestMatch.KB
+            DisplayName = $bestMatch.DisplayName
+            InstallDate = $bestMatch.InstallDate
+        }
+    }
+
+    return [pscustomobject]@{
+        Found = $false
+        CUNumber = 0
+        KB = $null
+        DisplayName = $null
+        InstallDate = $null
+    }
+}
+
+Export-ModuleMember -Function Resolve-WinSCPPackageLayout, Search-BTSCumulativeUpdate, Get-BTSCumulativeUpdateByDisplayName
