@@ -298,7 +298,7 @@ if ($Continue) {
         $bizTalkInstallFolder = (get-itemPropertyValue 'HKLM:\SOFTWARE\Microsoft\BizTalk Server\3.0' -Name 'InstallPath')
           
         if (-not $bizTalkInstallFolder) {
-            $Continue = false;
+            $Continue = $false;
             Write-Error "Microsoft BizTalk Server was not located by checking the environment variable BTSINSTALLPATH and the Registry key for BizTalk, exiting the process";
             Write-Error "Please confirm that Microsoft BizTalk Server is installed on this system";
         }

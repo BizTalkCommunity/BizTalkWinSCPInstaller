@@ -53,6 +53,18 @@ Describe "CU detection functions" {
             $found = Search-BTSCumulativeUpdate -CumulativeUpdateID "5043408" -BizTalkVersion "2020"
             $found | Should -BeTrue
         }
+
+        It "returns false when uninstall entries have empty display names" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty {
+                @(
+                    [pscustomobject]@{ DisplayName = $null },
+                    [pscustomobject]@{ DisplayName = "   " }
+                )
+            }
+
+            $found = Search-BTSCumulativeUpdate -CumulativeUpdateID "5043408" -BizTalkVersion "2020"
+            $found | Should -BeFalse
+        }
     }
 
     Context "Get-BTSCumulativeUpdateByDisplayName" {

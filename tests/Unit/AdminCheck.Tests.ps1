@@ -43,4 +43,9 @@ Describe "Test-IsAdministrator" {
         $result = Test-IsAdministrator -GetCurrentIdentity $identityGetter -NewPrincipal $principalFactory
         $result | Should -BeFalse
     }
+
+    It "returns a boolean when using default identity/principal providers" {
+        $result = Test-IsAdministrator
+        ($result -is [bool]) | Should -BeTrue
+    }
 }
