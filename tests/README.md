@@ -29,22 +29,28 @@ Invoke-Pester tests/Unit/Resolve-WinSCPPackageLayout.Tests.ps1 -Verbose
 | `CuDetection.Tests.ps1` | `Search-BTSCumulativeUpdate`, `Get-BTSCumulativeUpdateByDisplayName` | CU/KB detection for BizTalk 2016/2020, CU6 dual-KB coverage, fallback behavior |
 | `AdminCheck.Tests.ps1` | `Test-IsAdministrator` | Elevation detection behavior via dependency-injected identity/principal stubs |
 | `InstallFlow.Tests.ps1` | `Get-InstallExecutionPlan` | ForceInstall/WhatIf/admin gating, already-installed skip/reinstall decisions |
+| `VersionValidation.Tests.ps1` | `Test-WinSCPVersionString` | Missing/invalid/valid WinSCP version validation and parsing behavior |
+| `PackageReadiness.Tests.ps1` | `Get-PackageReadinessState` | NuGet and package artifact readiness (missing/incomplete/ready) |
+| `FinalOutcome.Tests.ps1` | `Get-FinalExecutionOutcome` | Final outcome classification (success, dry-run, prerequisite failure, install failure) |
 
 ### Planned Tests (Stage 2+)
 
 - Full installer orchestration tests — end-to-end decision flow with mocked registry/download/copy operations
-- Error-path tests — NuGet download failure, package extraction failure, copy failure messaging
 - WhatIf/ShouldProcess interaction tests at command level
+- Full installer orchestration tests with mocked command invocations and explicit message assertions
 
 ## Current stage
 
-**Stage 3**: Core unit test coverage for package layout, CU detection, admin checks, and install-flow decisions.
+**Stage 4**: Expanded core unit coverage including validation, readiness, and final-outcome classification.
 
 - `src/InstallWinSCPForBizTalk.Core.psm1` - Extracted and testable core functions
 - `tests/Unit/Resolve-WinSCPPackageLayout.Tests.ps1` - Package layout resolution tests
 - `tests/Unit/CuDetection.Tests.ps1` - CU detection and mapping tests
 - `tests/Unit/AdminCheck.Tests.ps1` - Admin/elevation behavior tests
 - `tests/Unit/InstallFlow.Tests.ps1` - Install-flow decision tests
+- `tests/Unit/VersionValidation.Tests.ps1` - WinSCP version validation tests
+- `tests/Unit/PackageReadiness.Tests.ps1` - Package/download readiness classification tests
+- `tests/Unit/FinalOutcome.Tests.ps1` - Final outcome classification tests
 
 ### What's tested
 
@@ -64,4 +70,4 @@ This allows tests to run without a real NuGet package or file system.
 
 ## Next stages
 
-Stage 4: Add integration-style tests for full install flow with mocked registry/download/copy operations.
+Stage 5: Add integration-style tests for full install flow with mocked registry/download/copy operations and ShouldProcess message-level assertions.

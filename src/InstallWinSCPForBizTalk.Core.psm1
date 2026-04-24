@@ -303,4 +303,138 @@ function Get-InstallExecutionPlan {
     }
 }
 
-Export-ModuleMember -Function Resolve-WinSCPPackageLayout, Search-BTSCumulativeUpdate, Get-BTSCumulativeUpdateByDisplayName, Test-IsAdministrator, Get-InstallExecutionPlan
+#####################################################################
+# Function to validate WinSCP version string
+#####################################################################
+function Test-WinSCPVersionString {
+    <#
+    .SYNOPSIS
+    Validates a WinSCP version string and returns structured results.
+    #>
+    Param(
+        [string]$WinSCPVersion
+    )
+
+    $parsedVersion = $null
+
+    if ([string]::IsNullOrWhiteSpace($WinSCPVersion)) {
+        return [pscustomobject]@{
+            IsValid = $false
+            ErrorCode = "MissingVersion"
+            ParsedVersion = $null
+        }
+    }
+
+    if (-not [version]::TryParse($WinSCPVersion, [ref]$parsedVersion)) {
+        return [pscustomobject]@{
+            IsValid = $false
+            ErrorCode = "InvalidFormat"
+            ParsedVersion = $null
+        }
+    }
+
+    return [pscustomobject]@{
+        IsValid = $true
+        ErrorCode = "None"
+        ParsedVersion = $parsedVersion
+    }
+}
+
+#####################################################################
+# Function to classify package/download readiness
+#####################################################################
+function Get-PackageReadinessState {
+    <#
+    .SYNOPSIS
+    Classifies package acquisition state from known file-existence flags.
+    #>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [bool]$NuGetExeExists,
+        [Parameter(Mandatory = $true)]
+        [bool]$WinSCPExeExists,
+        [Parameter(Mandatory = $true)]
+        [bool]$WinSCPDllExists
+    )
+
+    if (-not $NuGetExeExists) {
+        return [pscustomobject]@{
+            IsReady = $false
+            State = "MissingNuGet"
+        }
+    }
+
+    if (-not $WinSCPExeExists -and -not $WinSCPDllExists) {
+        return [pscustomobject]@{
+            IsReady = $false
+            State = "MissingWinSCPPackage"
+        }
+    }
+
+    if (-not $WinSCPExeExists -or -not $WinSCPDllExists) {
+        return [pscustomobject]@{
+            IsReady = $false
+            State = "IncompleteWinSCPPackage"
+        }
+    }
+
+    return [pscustomobject]@{
+        IsReady = $true
+        State = "Ready"
+    }
+}
+
+#####################################################################
+# Function to classify final execution outcome
+#####################################################################
+function Get-FinalExecutionOutcome {
+    <#
+    .SYNOPSIS
+    Classifies final script outcome using terminal state flags.
+    #>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [bool]$InstalledSuccessfully,
+        [Parameter(Mandatory = $true)]
+        [bool]$WhatIf,
+        [Parameter(Mandatory = $true)]
+        [bool]$PrerequisiteFailure,
+        [Parameter(Mandatory = $true)]
+        [bool]$ContinueFlag
+    )
+
+    if ($InstalledSuccessfully) {
+        return [pscustomobject]@{
+            Outcome = "Success"
+            IsError = $false
+        }
+    }
+
+    if ($WhatIf) {
+        return [pscustomobject]@{
+            Outcome = "DryRun"
+            IsError = $false
+        }
+    }
+
+    if ($PrerequisiteFailure) {
+        return [pscustomobject]@{
+            Outcome = "PrerequisiteFailure"
+            IsError = $true
+        }
+    }
+
+    if (-not $ContinueFlag) {
+        return [pscustomobject]@{
+            Outcome = "InstallFailure"
+            IsError = $true
+        }
+    }
+
+    return [pscustomobject]@{
+        Outcome = "Unknown"
+        IsError = $true
+    }
+}
+
+Export-ModuleMember -Function Resolve-WinSCPPackageLayout, Search-BTSCumulativeUpdate, Get-BTSCumulativeUpdateByDisplayName, Test-IsAdministrator, Get-InstallExecutionPlan, Test-WinSCPVersionString, Get-PackageReadinessState, Get-FinalExecutionOutcome
