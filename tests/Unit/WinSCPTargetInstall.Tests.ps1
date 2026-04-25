@@ -1,3 +1,12 @@
+<#
+.SYNOPSIS
+Unit tests for target installation copy/verification helper.
+
+.DESCRIPTION
+Validates copy behavior, post-copy target verification, and user-facing error
+messages returned by Invoke-WinSCPTargetInstall.
+#>
+
 if (-not (Get-Module -ListAvailable Pester | Where-Object { $_.Version.Major -ge 5 })) {
     throw "Pester 5+ is required to run this test file. Install with: Install-Module Pester -Scope CurrentUser -RequiredVersion 5.0 -Force"
 }

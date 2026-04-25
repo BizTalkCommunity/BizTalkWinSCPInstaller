@@ -1,3 +1,12 @@
+<#
+.SYNOPSIS
+Unit tests for package readiness-state classification helper.
+
+.DESCRIPTION
+Validates readiness classification for NuGet and WinSCP artifact combinations,
+including missing, incomplete, and ready states.
+#>
+
 if (-not (Get-Module -ListAvailable Pester | Where-Object { $_.Version.Major -ge 5 })) {
     throw "Pester 5+ is required to run this test file. Install with: Install-Module Pester -Scope CurrentUser -RequiredVersion 5.0 -Force"
 }

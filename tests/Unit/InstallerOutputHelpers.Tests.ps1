@@ -1,3 +1,12 @@
+<#
+.SYNOPSIS
+Unit tests for installer output and snapshot helper functions.
+
+.DESCRIPTION
+Validates banner/delimited output helpers, final-outcome messaging, state snapshot
+wrappers, and semantic output helper behavior in the Utils module.
+#>
+
 if (-not (Get-Module -ListAvailable Pester | Where-Object { $_.Version.Major -ge 5 })) {
     throw "Pester 5+ is required to run this test file. Install with: Install-Module Pester -Scope CurrentUser -RequiredVersion 5.0 -Force"
 }

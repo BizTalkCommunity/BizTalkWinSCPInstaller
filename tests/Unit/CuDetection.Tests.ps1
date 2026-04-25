@@ -1,3 +1,12 @@
+<#
+.SYNOPSIS
+Unit tests for BizTalk CU detection and WinSCP version mapping helpers.
+
+.DESCRIPTION
+Validates KB/display-name CU detection logic and mapping behavior used to select
+the required WinSCP version for BizTalk 2016/2020 scenarios.
+#>
+
 if (-not (Get-Module -ListAvailable Pester | Where-Object { $_.Version.Major -ge 5 })) {
     throw "Pester 5+ is required to run this test file. Install with: Install-Module Pester -Scope CurrentUser -RequiredVersion 5.0 -Force"
 }

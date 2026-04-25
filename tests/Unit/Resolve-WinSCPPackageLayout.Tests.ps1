@@ -1,3 +1,12 @@
+<#
+.SYNOPSIS
+Unit tests for WinSCP package layout resolution helper.
+
+.DESCRIPTION
+Validates standard-path and recursive-fallback discovery for WinSCP.exe and
+WinSCPnet.dll within NuGet package layouts.
+#>
+
 if (-not (Get-Module -ListAvailable Pester | Where-Object { $_.Version.Major -ge 5 })) {
     throw "Pester 5+ is required to run this test file. Install with: Install-Module Pester -Scope CurrentUser -RequiredVersion 5.0 -Force"
 }

@@ -1,10 +1,34 @@
-#####################################################################
 # InstallWinSCPForBizTalk.Workflow.psm1
-#
 # Workflow/orchestration phase helpers for the installer script.
-#####################################################################
 
+# Detect BizTalk installation metadata and normalize install target details.
 function Invoke-BizTalkDetectionPhase {
+    <#
+    .SYNOPSIS
+    Detects BizTalk installation metadata and resolves install location details.
+
+    .DESCRIPTION
+    Uses environment/registry inputs to resolve the BizTalk installation folder,
+    validates required product metadata, and updates the shared workflow context.
+
+    .PARAMETER Context
+    Mutable hashtable used to share installer state across workflow phases.
+
+    .PARAMETER EnvironmentInstallPath
+    BTSINSTALLPATH value from environment lookup.
+
+    .PARAMETER RegistryInstallPath
+    InstallPath value from BizTalk registry lookup.
+
+    .PARAMETER ProductCodeCurrent
+    BizTalk ProductCodeCurrent registry value.
+
+    .PARAMETER ProductName
+    BizTalk ProductName registry value.
+
+    .PARAMETER ProductVersion
+    BizTalk ProductVersion registry value.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Context,
@@ -61,7 +85,22 @@ function Invoke-BizTalkDetectionPhase {
     Write-BizTalkSearchSnapshot -InstallFolder $Context.bizTalkInstallFolder -InstallFolderExists $Context.bizTalkInstallFolderExists -ProductCodeCurrent $Context.bizTalkProductCodeCurrent -ProductName $Context.bizTalkProductName -ProductVersion $Context.bizTalkProductVersion
 }
 
+# Enforce ForceInstall elevation rules before any mutating action is attempted.
 function Invoke-ForceInstallPrerequisitePhase {
+    <#
+    .SYNOPSIS
+    Applies elevation prerequisites for ForceInstall scenarios.
+
+    .DESCRIPTION
+    Prevents real install execution for non-admin ForceInstall runs unless WhatIf
+    is enabled, and records prerequisite failure state in workflow context.
+
+    .PARAMETER Context
+    Mutable hashtable used to share installer state across workflow phases.
+
+    .PARAMETER WhatIf
+    Indicates whether script execution is in WhatIf (dry-run) mode.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Context,
@@ -92,7 +131,19 @@ function Invoke-ForceInstallPrerequisitePhase {
     }
 }
 
+# Resolve required WinSCP version from detected BizTalk version/CU mapping.
 function Invoke-CuDetectionPhase {
+    <#
+    .SYNOPSIS
+    Resolves the required WinSCP version for the detected BizTalk installation.
+
+    .DESCRIPTION
+    Calls CU mapping logic, sets WinSCP/CU fields in workflow context, and emits
+    standardized output for detected CU or RTM baseline.
+
+    .PARAMETER Context
+    Mutable hashtable used to share installer state across workflow phases.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Context
@@ -138,7 +189,19 @@ function Invoke-CuDetectionPhase {
     Write-BizTalkCuSearchSnapshot -WinSCPVersion $Context.winSCPVersion -KB $Context.btsKB -CULabel $Context.bizTalkCUVer -CUFound $Context.CUFound
 }
 
+# Check for an already-correct WinSCP install and decide skip/reinstall behavior.
 function Invoke-ExistingWinSCPCheckPhase {
+    <#
+    .SYNOPSIS
+    Checks existing WinSCP files and computes install/reinstall execution plan.
+
+    .DESCRIPTION
+    Reads existing BizTalk target file versions, compares with required version,
+    and sets execution gating flags in workflow context.
+
+    .PARAMETER Context
+    Mutable hashtable used to share installer state across workflow phases.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Context
@@ -194,7 +257,19 @@ function Invoke-ExistingWinSCPCheckPhase {
     Write-ExistingWinSCPSnapshot -ExeProductVersionInstalled $Context.btsWinSCPEXEProductVersionInstalled -DllProductVersionInstalled $Context.btsWinSCPDLLProductVersionInstalled -ProductVersionRequired $Context.winSCPProductVersionRequired -InstalledAndCorrect $Context.btsWinSCPProductInstalledAndCorrect -TargetExePath $Context.btsTargetWinSCPExe -TargetDllPath $Context.btsTargetWinSCPDll
 }
 
+# Emit non-admin warning when continuing in non-elevated non-force scenarios.
 function Invoke-NonAdminWarningPhase {
+    <#
+    .SYNOPSIS
+    Emits non-admin warning messaging for read/dry-run continuation paths.
+
+    .DESCRIPTION
+    Uses install execution plan fields in workflow context to display guidance
+    when elevation is recommended but execution can continue safely.
+
+    .PARAMETER Context
+    Mutable hashtable used to share installer state across workflow phases.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Context
@@ -209,7 +284,19 @@ function Invoke-NonAdminWarningPhase {
     }
 }
 
+# Validate resolved WinSCP version format before downloads/install proceed.
 function Invoke-VersionValidationPhase {
+    <#
+    .SYNOPSIS
+    Validates resolved WinSCP version string format.
+
+    .DESCRIPTION
+    Uses core version parsing checks and stops workflow progression when version
+    mapping yields missing or invalid values.
+
+    .PARAMETER Context
+    Mutable hashtable used to share installer state across workflow phases.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Context
@@ -232,7 +319,19 @@ function Invoke-VersionValidationPhase {
     }
 }
 
+# Ensure download folder state is ready and capture initial package-layout snapshot.
 function Invoke-DownloadFolderPreparationPhase {
+    <#
+    .SYNOPSIS
+    Prepares download folder and resolves pre-existing package layout state.
+
+    .DESCRIPTION
+    Creates the NuGet download folder when needed, resolves initial package file
+    locations, and stores folder/package readiness details in workflow context.
+
+    .PARAMETER Context
+    Mutable hashtable used to share installer state across workflow phases.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Context
@@ -276,7 +375,19 @@ function Invoke-DownloadFolderPreparationPhase {
     }
 }
 
+# Download (or reuse) nuget.exe and snapshot resulting readiness state.
 function Invoke-NuGetDownloadPhase {
+    <#
+    .SYNOPSIS
+    Ensures nuget.exe is available for package acquisition.
+
+    .DESCRIPTION
+    Reuses or downloads nuget.exe based on current state and ForceInstall flags,
+    then records resulting readiness state in workflow context.
+
+    .PARAMETER Context
+    Mutable hashtable used to share installer state across workflow phases.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Context
@@ -322,7 +433,19 @@ function Invoke-NuGetDownloadPhase {
     Write-NuGetDownloadSnapshot -TargetNugetExeAlreadyExists $Context.targetNugetExeAlreadyExists -TargetNugetExeExists $Context.targetNugetExeExists -SourceNugetExe $Context.sourceNugetExe -TargetNugetExe $Context.targetNugetExe
 }
 
+# Download (or reuse) WinSCP package files and verify required artifacts exist.
 function Invoke-WinSCPPackageDownloadPhase {
+    <#
+    .SYNOPSIS
+    Ensures required WinSCP package artifacts exist in the download folder.
+
+    .DESCRIPTION
+    Reuses or downloads WinSCP package files, resolves extracted EXE/DLL paths,
+    and records package completeness state in workflow context.
+
+    .PARAMETER Context
+    Mutable hashtable used to share installer state across workflow phases.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Context
@@ -378,7 +501,19 @@ function Invoke-WinSCPPackageDownloadPhase {
     Write-WinSCPDownloadSnapshot -GetWinSCP $Context.getWinSCP -WinSCPEXEAlreadyExists $Context.WinSCPEXEAlreadyExists -WinSCPDLLAlreadyExists $Context.WinSCPDLLAlreadyExists -WinSCPDllDownload $Context.WinSCPDllDownload -WinSCPEXEExists $Context.WinSCPEXEExists -WinSCPDLLExists $Context.WinSCPDLLExists
 }
 
+# Copy resolved WinSCP artifacts into BizTalk folder and record install outcome.
 function Invoke-WinSCPCopyPhase {
+    <#
+    .SYNOPSIS
+    Copies WinSCP binaries into BizTalk installation folder.
+
+    .DESCRIPTION
+    Executes final copy operation with ShouldProcess support, validates target
+    artifact presence, and records install outcome in workflow context.
+
+    .PARAMETER Context
+    Mutable hashtable used to share installer state across workflow phases.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Context

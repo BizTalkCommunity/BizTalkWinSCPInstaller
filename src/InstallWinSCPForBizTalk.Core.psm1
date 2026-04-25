@@ -1,12 +1,7 @@
-#####################################################################
 # InstallWinSCPForBizTalk.Core.psm1
-# 
-# Core functions extracted for unit testing
-#####################################################################
+# Core decision and validation helpers used by the installer workflow.
 
-#####################################################################
-# Function to resolve WinSCP package layout from extracted NuGet files
-#####################################################################
+# Resolve WinSCP package layout from extracted NuGet files.
 function Resolve-WinSCPPackageLayout {
     <#
     .SYNOPSIS
@@ -101,9 +96,7 @@ function Resolve-WinSCPPackageLayout {
     }
 }
 
-#####################################################################
-# Function to search for specific BizTalk cumulative updates
-#####################################################################
+# Search for specific BizTalk cumulative updates by KB value.
 function Search-BTSCumulativeUpdate {
     <#
     .SYNOPSIS
@@ -140,9 +133,7 @@ function Search-BTSCumulativeUpdate {
     })
 }
 
-#####################################################################
-# Function to detect the highest CU from uninstall DisplayName entries
-#####################################################################
+# Detect the highest CU from uninstall DisplayName entries.
 function Get-BTSCumulativeUpdateByDisplayName {
     <#
     .SYNOPSIS
@@ -219,9 +210,7 @@ function Get-BTSCumulativeUpdateByDisplayName {
     }
 }
 
-#####################################################################
-# Function to test if current session runs elevated
-#####################################################################
+# Test whether the current PowerShell session runs elevated.
 function Test-IsAdministrator {
     <#
     .SYNOPSIS
@@ -244,9 +233,7 @@ function Test-IsAdministrator {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-#####################################################################
-# Function to evaluate install-gating behavior
-#####################################################################
+# Evaluate install-gating behavior from elevation and execution flags.
 function Get-InstallExecutionPlan {
     <#
     .SYNOPSIS
@@ -303,9 +290,7 @@ function Get-InstallExecutionPlan {
     }
 }
 
-#####################################################################
-# Function to validate WinSCP version string
-#####################################################################
+# Validate WinSCP version string values.
 function Test-WinSCPVersionString {
     <#
     .SYNOPSIS
@@ -340,9 +325,7 @@ function Test-WinSCPVersionString {
     }
 }
 
-#####################################################################
-# Function to resolve BizTalk install folder from env/registry inputs
-#####################################################################
+# Resolve BizTalk install folder from environment/registry candidates.
 function Resolve-BizTalkInstallFolder {
     <#
     .SYNOPSIS
@@ -377,9 +360,7 @@ function Resolve-BizTalkInstallFolder {
     }
 }
 
-#####################################################################
-# Function to evaluate whether NuGet should be downloaded
-#####################################################################
+# Evaluate whether NuGet should be downloaded or reused.
 function Get-NuGetDownloadPlan {
     <#
     .SYNOPSIS
@@ -407,9 +388,7 @@ function Get-NuGetDownloadPlan {
     }
 }
 
-#####################################################################
-# Function to evaluate whether WinSCP package should be downloaded
-#####################################################################
+# Evaluate whether the WinSCP package should be downloaded or reused.
 function Get-WinSCPPackageDownloadPlan {
     <#
     .SYNOPSIS
@@ -440,9 +419,7 @@ function Get-WinSCPPackageDownloadPlan {
     }
 }
 
-#####################################################################
-# Function to copy and validate WinSCP files into BizTalk folder
-#####################################################################
+# Copy and validate WinSCP files in the BizTalk installation folder.
 function Invoke-WinSCPTargetInstall {
     <#
     .SYNOPSIS
@@ -521,9 +498,7 @@ function Invoke-WinSCPTargetInstall {
     }
 }
 
-#####################################################################
-# Function to classify package/download readiness
-#####################################################################
+# Classify package/download readiness from file existence state.
 function Get-PackageReadinessState {
     <#
     .SYNOPSIS
@@ -565,9 +540,7 @@ function Get-PackageReadinessState {
     }
 }
 
-#####################################################################
-# Function to classify final execution outcome
-#####################################################################
+# Classify final execution outcome from terminal state flags.
 function Get-FinalExecutionOutcome {
     <#
     .SYNOPSIS
@@ -618,9 +591,7 @@ function Get-FinalExecutionOutcome {
     }
 }
 
-#####################################################################
-# Function to map a BizTalk product code to a version label
-#####################################################################
+# Map a BizTalk product code GUID to a major version label.
 function Get-BizTalkVersionFromProductCode {
     <#
     .SYNOPSIS
@@ -642,9 +613,7 @@ function Get-BizTalkVersionFromProductCode {
     return $null
 }
 
-#####################################################################
-# Function to select the correct WinSCP version for a BizTalk install
-#####################################################################
+# Select the correct WinSCP version for a BizTalk installation.
 function Get-WinSCPVersionForBizTalk {
     <#
     .SYNOPSIS

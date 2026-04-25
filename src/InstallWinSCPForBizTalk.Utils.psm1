@@ -1,29 +1,41 @@
-#####################################################################
 # InstallWinSCPForBizTalk.Utils.psm1
-#
-# Shared output utility functions for the WinSCP BizTalk installer
-#####################################################################
+# Shared output, snapshot, and semantic messaging helpers.
 
-#####################################################################
-# Function to write an error
-#####################################################################
+# Write an installer error line.
 function Write-InstallerError {
+    <#
+    .SYNOPSIS
+    Writes an installer error line using standard error color styling.
+
+    .PARAMETER ErrorMessage
+    Error message text to display.
+    #>
     Param([string] $ErrorMessage)
     Write-Host -ForegroundColor Red "$ErrorMessage";
 }
 
-#####################################################################
-# Function to write success
-#####################################################################
+# Write an installer success/info line.
 function Write-InstallerSuccess {
+    <#
+    .SYNOPSIS
+    Writes an installer success/info line using standard success color styling.
+
+    .PARAMETER SuccessMessage
+    Success/info message text to display.
+    #>
     Param([string] $SuccessMessage)
     Write-Host -ForegroundColor Green "$SuccessMessage";
 }
 
-#####################################################################
-# Function to resolve shared banner lines used in script output
-#####################################################################
+# Resolve shared banner lines used in installer output.
 function Get-InstallerBannerLine {
+    <#
+    .SYNOPSIS
+    Returns a standard banner delimiter line used by installer output blocks.
+
+    .PARAMETER Name
+    Banner style name: Hash, Bang, or Up.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [ValidateSet('Hash', 'Bang', 'Up')]
@@ -38,10 +50,28 @@ function Get-InstallerBannerLine {
     }
 }
 
-#####################################################################
-# Function to write a delimited message block
-#####################################################################
+# Write a delimiter-wrapped message block.
 function Write-InstallerDelimitedMessage {
+    <#
+    .SYNOPSIS
+    Writes a structured, delimiter-wrapped message block.
+
+    .DESCRIPTION
+    Outputs one or more lines wrapped by a selected delimiter style and severity
+    level, with optional leading blank line for section separation.
+
+    .PARAMETER MessageLines
+    Message lines to emit inside the delimiter block.
+
+    .PARAMETER Delimiter
+    Delimiter style name: Hash, Bang, or Up.
+
+    .PARAMETER Level
+    Output level style: Success or Error.
+
+    .PARAMETER LeadingNewLine
+    Adds a leading newline before the opening delimiter when specified.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [string[]] $MessageLines,
@@ -74,10 +104,18 @@ function Write-InstallerDelimitedMessage {
     Write-InstallerSuccess $delimiterLine
 }
 
-#####################################################################
-# Function to write a section header block with hash delimiters
-#####################################################################
+# Write a section header block with hash delimiters.
 function Write-InstallerSectionHeader {
+    <#
+    .SYNOPSIS
+    Writes a standard installer section header block.
+
+    .PARAMETER Title
+    Section title text.
+
+    .PARAMETER LeadingNewLine
+    Adds a leading newline before the opening delimiter when specified.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [string] $Title,
@@ -88,10 +126,18 @@ function Write-InstallerSectionHeader {
     Write-InstallerDelimitedMessage -MessageLines @($Title) -Delimiter 'Hash' -Level 'Success' -LeadingNewLine:$LeadingNewLine
 }
 
-#####################################################################
-# Function to write a bang-delimited error block
-#####################################################################
+# Write a bang-delimited error block.
 function Write-InstallerBangError {
+    <#
+    .SYNOPSIS
+    Writes a standardized bang-delimited error block.
+
+    .PARAMETER MessageLines
+    Error lines to emit inside the delimiter block.
+
+    .PARAMETER LeadingNewLine
+    Adds a leading newline before the opening delimiter when specified.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [string[]] $MessageLines,
@@ -102,10 +148,18 @@ function Write-InstallerBangError {
     Write-InstallerDelimitedMessage -MessageLines $MessageLines -Delimiter 'Bang' -Level 'Error' -LeadingNewLine:$LeadingNewLine
 }
 
-#####################################################################
-# Function to render final installer outcome messages
-#####################################################################
+# Render standardized final installer outcome messages.
 function Write-InstallerFinalOutcome {
+    <#
+    .SYNOPSIS
+    Renders standardized final installer outcome messaging.
+
+    .PARAMETER Outcome
+    Final outcome classification string.
+
+    .PARAMETER WinSCPVersion
+    Resolved WinSCP version associated with the run.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
@@ -149,9 +203,7 @@ function Write-InstallerFinalOutcome {
     }
 }
 
-#####################################################################
-# Debug utility class for compact state snapshot logging
-#####################################################################
+# Debug utility class for compact state snapshot logging.
 class InstallerDebugUtility {
     static [void] WriteState([string]$Title, [hashtable]$State) {
         if ($null -eq $State) {
@@ -171,10 +223,18 @@ class InstallerDebugUtility {
     }
 }
 
-#####################################################################
-# Function wrapper for debug state snapshots from installer script
-#####################################################################
+# Wrapper for debug state snapshots emitted by installer phases.
 function Write-InstallerStateSnapshot {
+    <#
+    .SYNOPSIS
+    Emits a structured debug/verbose snapshot of installer state.
+
+    .PARAMETER Title
+    Snapshot title heading.
+
+    .PARAMETER State
+    Ordered state hashtable to emit.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
@@ -187,7 +247,27 @@ function Write-InstallerStateSnapshot {
     [InstallerDebugUtility]::WriteState($Title, $State)
 }
 
+# Emit discovery snapshot for BizTalk install path and product metadata.
 function Write-BizTalkSearchSnapshot {
+    <#
+    .SYNOPSIS
+    Emits snapshot state for BizTalk install discovery results.
+
+    .PARAMETER InstallFolder
+    Resolved BizTalk install folder path.
+
+    .PARAMETER InstallFolderExists
+    Indicates whether resolved install folder exists.
+
+    .PARAMETER ProductCodeCurrent
+    BizTalk product code value.
+
+    .PARAMETER ProductName
+    BizTalk product name value.
+
+    .PARAMETER ProductVersion
+    BizTalk product version value.
+    #>
     Param(
         [string]$InstallFolder,
         [bool]$InstallFolderExists,
@@ -205,7 +285,24 @@ function Write-BizTalkSearchSnapshot {
     })
 }
 
+# Emit CU-detection snapshot showing resolved WinSCP target mapping.
 function Write-BizTalkCuSearchSnapshot {
+    <#
+    .SYNOPSIS
+    Emits snapshot state for BizTalk CU detection results.
+
+    .PARAMETER WinSCPVersion
+    Resolved WinSCP version.
+
+    .PARAMETER KB
+    Detected KB identifier.
+
+    .PARAMETER CULabel
+    Detected CU label.
+
+    .PARAMETER CUFound
+    Indicates whether a CU was detected.
+    #>
     Param(
         [string]$WinSCPVersion,
         [string]$KB,
@@ -221,7 +318,30 @@ function Write-BizTalkCuSearchSnapshot {
     })
 }
 
+# Emit snapshot for existing WinSCP file/version checks in target folder.
 function Write-ExistingWinSCPSnapshot {
+    <#
+    .SYNOPSIS
+    Emits snapshot state for existing WinSCP target validation checks.
+
+    .PARAMETER ExeProductVersionInstalled
+    Existing installed EXE product version.
+
+    .PARAMETER DllProductVersionInstalled
+    Existing installed DLL product version.
+
+    .PARAMETER ProductVersionRequired
+    Required WinSCP product version.
+
+    .PARAMETER InstalledAndCorrect
+    Indicates whether installed WinSCP is already correct.
+
+    .PARAMETER TargetExePath
+    Target EXE path in BizTalk folder.
+
+    .PARAMETER TargetDllPath
+    Target DLL path in BizTalk folder.
+    #>
     Param(
         [string]$ExeProductVersionInstalled,
         [string]$DllProductVersionInstalled,
@@ -241,7 +361,30 @@ function Write-ExistingWinSCPSnapshot {
     })
 }
 
+# Emit snapshot for download-folder readiness and staged artifact discovery.
 function Write-TargetFolderPreparationSnapshot {
+    <#
+    .SYNOPSIS
+    Emits snapshot state for download-folder preparation decisions.
+
+    .PARAMETER NugetDownloadFolderAlreadyExists
+    Indicates whether download folder existed prior to preparation.
+
+    .PARAMETER NugetDownloadFolderExists
+    Indicates whether download folder exists after preparation.
+
+    .PARAMETER WinSCPEXEDownload
+    Resolved WinSCP EXE package path.
+
+    .PARAMETER WinSCPDllDownload
+    Resolved WinSCP DLL package path.
+
+    .PARAMETER WinSCPEXEDownloadAlreadyExists
+    Indicates whether package EXE already existed.
+
+    .PARAMETER WinSCPDllDownloadAlreadyExists
+    Indicates whether package DLL already existed.
+    #>
     Param(
         [bool]$NugetDownloadFolderAlreadyExists,
         [bool]$NugetDownloadFolderExists,
@@ -261,7 +404,24 @@ function Write-TargetFolderPreparationSnapshot {
     })
 }
 
+# Emit snapshot for NuGet acquisition state and source/target paths.
 function Write-NuGetDownloadSnapshot {
+    <#
+    .SYNOPSIS
+    Emits snapshot state for NuGet acquisition/readiness.
+
+    .PARAMETER TargetNugetExeAlreadyExists
+    Indicates whether nuget.exe existed before acquisition.
+
+    .PARAMETER TargetNugetExeExists
+    Indicates whether nuget.exe exists after acquisition.
+
+    .PARAMETER SourceNugetExe
+    NuGet download source URI.
+
+    .PARAMETER TargetNugetExe
+    NuGet target file path.
+    #>
     Param(
         [bool]$TargetNugetExeAlreadyExists,
         [bool]$TargetNugetExeExists,
@@ -277,7 +437,30 @@ function Write-NuGetDownloadSnapshot {
     })
 }
 
+# Emit snapshot for WinSCP package acquisition and extracted artifact presence.
 function Write-WinSCPDownloadSnapshot {
+    <#
+    .SYNOPSIS
+    Emits snapshot state for WinSCP package acquisition.
+
+    .PARAMETER GetWinSCP
+    Command preview used for WinSCP package acquisition.
+
+    .PARAMETER WinSCPEXEAlreadyExists
+    Indicates whether package EXE existed before acquisition.
+
+    .PARAMETER WinSCPDLLAlreadyExists
+    Indicates whether package DLL existed before acquisition.
+
+    .PARAMETER WinSCPDllDownload
+    Resolved package DLL path.
+
+    .PARAMETER WinSCPEXEExists
+    Indicates whether package EXE exists after acquisition.
+
+    .PARAMETER WinSCPDLLExists
+    Indicates whether package DLL exists after acquisition.
+    #>
     Param(
         [string]$GetWinSCP,
         [bool]$WinSCPEXEAlreadyExists,
@@ -297,7 +480,30 @@ function Write-WinSCPDownloadSnapshot {
     })
 }
 
+# Emit snapshot for copy/install results into the BizTalk installation folder.
 function Write-WinSCPCopySnapshot {
+    <#
+    .SYNOPSIS
+    Emits snapshot state for WinSCP copy/install result validation.
+
+    .PARAMETER BizTalkInstallFolder
+    Target BizTalk install folder path.
+
+    .PARAMETER WinSCPEXEDownload
+    Source WinSCP EXE path.
+
+    .PARAMETER WinSCPDllDownload
+    Source WinSCP DLL path.
+
+    .PARAMETER WinSCPTargetEXEExists
+    Indicates whether target EXE exists after copy.
+
+    .PARAMETER WinSCPDLLTargetExists
+    Indicates whether target DLL exists after copy.
+
+    .PARAMETER InstalledAndCorrect
+    Indicates whether final install state is considered correct.
+    #>
     Param(
         [string]$BizTalkInstallFolder,
         [string]$WinSCPEXEDownload,
@@ -317,19 +523,42 @@ function Write-WinSCPCopySnapshot {
     })
 }
 
-#####################################################################
-# Semantic installer message wrappers to reduce script output noise
-#####################################################################
+# Semantic installer message wrappers that keep workflow code concise.
+
+# Warn that BTS path is missing in environment and registry fallback is being used.
 function Write-BizTalkRegistryFallbackNotice {
+    <#
+    .SYNOPSIS
+    Writes standard warning when BTSINSTALLPATH is missing and registry fallback is used.
+    #>
     Write-InstallerError 'The Env:BTSINSTALLPATH doesn`t exist, checking to see if the path is in the registry HKLM:\SOFTWARE\Microsoft\BizTalk Server\3.0@InstallPath'
 }
 
+# Emit terminal message when BizTalk installation cannot be located.
 function Write-BizTalkNotLocatedError {
+    <#
+    .SYNOPSIS
+    Writes standard terminal error messaging for missing BizTalk installation.
+    #>
     Write-InstallerError 'Microsoft BizTalk Server was not located by checking the environment variable BTSINSTALLPATH and the Registry key for BizTalk, exiting the process'
     Write-InstallerError 'Please confirm that Microsoft BizTalk Server is installed on this system'
 }
 
+# Emit standardized success lines for detected BizTalk product details.
 function Write-BizTalkLocatedSuccess {
+    <#
+    .SYNOPSIS
+    Writes standardized success messaging for detected BizTalk product details.
+
+    .PARAMETER ProductName
+    Detected BizTalk product name.
+
+    .PARAMETER ProductVersion
+    Detected BizTalk product version.
+
+    .PARAMETER InstallFolder
+    Detected BizTalk install folder.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [string]$ProductName,
@@ -344,7 +573,15 @@ function Write-BizTalkLocatedSuccess {
     Write-InstallerSuccess "Located in the '$InstallFolder' folder."
 }
 
+# Emit CU-detection kickoff message for the detected BizTalk major version.
 function Write-BizTalkCuDetectionStart {
+    <#
+    .SYNOPSIS
+    Writes standardized CU-detection kickoff lines.
+
+    .PARAMETER BizTalkVersion
+    Detected BizTalk major version label.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [string]$BizTalkVersion
@@ -354,7 +591,15 @@ function Write-BizTalkCuDetectionStart {
     Write-InstallerSuccess 'Testing to see which Cumulative Update is installed'
 }
 
+# Emit standardized not-installed notice prior to package acquisition flow.
 function Write-WinSCPNotInstalledNotice {
+    <#
+    .SYNOPSIS
+    Writes standardized message for missing required WinSCP installation.
+
+    .PARAMETER WinSCPVersion
+    Required WinSCP version that is not currently installed.
+    #>
     Param(
         [Parameter(Mandatory = $true)]
         [string]$WinSCPVersion

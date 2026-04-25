@@ -1,3 +1,12 @@
+<#
+.SYNOPSIS
+Unit tests for final execution outcome classification helper.
+
+.DESCRIPTION
+Validates outcome classification for success, dry-run, prerequisite failure,
+installation failure, and unresolved/unknown terminal states.
+#>
+
 if (-not (Get-Module -ListAvailable Pester | Where-Object { $_.Version.Major -ge 5 })) {
     throw "Pester 5+ is required to run this test file. Install with: Install-Module Pester -Scope CurrentUser -RequiredVersion 5.0 -Force"
 }

@@ -1,3 +1,12 @@
+<#
+.SYNOPSIS
+Complexity gate tests for installer scripts and modules.
+
+.DESCRIPTION
+Computes cyclomatic and cognitive complexity from PowerShell AST and enforces
+pipeline thresholds for script bodies and function implementations.
+#>
+
 if (-not (Get-Module -ListAvailable Pester | Where-Object { $_.Version.Major -ge 5 })) {
     throw "Pester 5+ is required to run this test file. Install with: Install-Module Pester -Scope CurrentUser -RequiredVersion 5.0 -Force"
 }

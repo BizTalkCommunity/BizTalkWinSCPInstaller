@@ -1,3 +1,12 @@
+<#
+.SYNOPSIS
+Unit tests for administrator-role detection behavior.
+
+.DESCRIPTION
+Validates Test-IsAdministrator outcomes for injected principals and default
+identity/principal providers.
+#>
+
 if (-not (Get-Module -ListAvailable Pester | Where-Object { $_.Version.Major -ge 5 })) {
     throw "Pester 5+ is required to run this test file. Install with: Install-Module Pester -Scope CurrentUser -RequiredVersion 5.0 -Force"
 }

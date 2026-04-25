@@ -124,6 +124,24 @@ The script includes explicit mapping for these versions.
 - The script validates package layout dynamically for different NuGet package structures.
 - If BizTalk cannot be detected, the script exits with error details.
 
+## Documentation Generation
+
+The modules in `src/` now include PowerShell comment-based help and module manifests.
+
+Additional design and flow documentation:
+
+- Main script walkthrough and variable inventory: [docs/main-script-walkthrough.md](docs/main-script-walkthrough.md)
+- CU mapping maintenance guide: [docs/cu-mapping-maintenance.md](docs/cu-mapping-maintenance.md)
+
+To generate markdown help from function help comments:
+
+```powershell
+Install-Module platyPS -Scope CurrentUser
+.\scripts\Generate-ModuleHelp.ps1
+```
+
+Generated help files are written to `docs/help` by default.
+
 ## Credits
 
 - Thomas Canter

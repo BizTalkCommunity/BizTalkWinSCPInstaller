@@ -1,3 +1,12 @@
+<#
+.SYNOPSIS
+Script-level execution tests for InstallWinSCPForBizTalk.ps1.
+
+.DESCRIPTION
+Validates end-to-end orchestration behavior under mocked BizTalk/environment
+conditions, including CU selection, WhatIf paths, and prerequisite handling.
+#>
+
 if (-not (Get-Module -ListAvailable Pester | Where-Object { $_.Version.Major -ge 5 })) {
     throw "Pester 5+ is required to run this test file. Install with: Install-Module Pester -Scope CurrentUser -RequiredVersion 5.0 -Force"
 }

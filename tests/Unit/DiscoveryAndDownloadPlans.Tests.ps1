@@ -1,3 +1,12 @@
+<#
+.SYNOPSIS
+Unit tests for discovery and package-download planning helpers.
+
+.DESCRIPTION
+Validates BizTalk install path resolution and download-plan decision helpers for
+NuGet and WinSCP package acquisition behavior.
+#>
+
 if (-not (Get-Module -ListAvailable Pester | Where-Object { $_.Version.Major -ge 5 })) {
     throw "Pester 5+ is required to run this test file. Install with: Install-Module Pester -Scope CurrentUser -RequiredVersion 5.0 -Force"
 }
