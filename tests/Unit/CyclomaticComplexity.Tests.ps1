@@ -19,6 +19,20 @@ Describe "Cyclomatic complexity gates" {
                 MaxFunctionComplexity = 12
                 MaxScriptBodyCognitiveComplexity = 1
                 MaxFunctionCognitiveComplexity = 35
+            },
+            @{
+                Path = Join-Path $script:repoRoot "src\InstallWinSCPForBizTalk.Workflow.psm1"
+                MaxScriptBodyComplexity = 1
+                MaxFunctionComplexity = 10
+                MaxScriptBodyCognitiveComplexity = 1
+                MaxFunctionCognitiveComplexity = 20
+            },
+            @{
+                Path = Join-Path $script:repoRoot "src\InstallWinSCPForBizTalk.Utils.psm1"
+                MaxScriptBodyComplexity = 1
+                MaxFunctionComplexity = 6
+                MaxScriptBodyCognitiveComplexity = 1
+                MaxFunctionCognitiveComplexity = 8
             }
         )
 
