@@ -236,5 +236,19 @@ Describe "Installer output helpers" {
                 $SuccessMessage -eq 'Microsoft BizTalk Server folder and needs to be installed.'
             }
         }
+
+        It "writes two installer errors describing missing BizTalk installation" {
+            $script:errorMessages = @()
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils Write-InstallerError {
+                param([string] $ErrorMessage)
+                $script:errorMessages += $ErrorMessage
+            }
+
+            Write-BizTalkNotLocatedError
+
+            $script:errorMessages.Count | Should -Be 2
+            $script:errorMessages[0] | Should -Match 'BTSINSTALLPATH'
+            $script:errorMessages[1] | Should -Match 'Please confirm'
+        }
     }
 }

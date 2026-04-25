@@ -74,6 +74,28 @@ Describe "CU detection functions" {
             $found = Search-BTSCumulativeUpdate -CumulativeUpdateID "5043408" -BizTalkVersion "2020"
             $found | Should -BeFalse
         }
+
+        It "matches CU entries with extra whitespace and mixed casing" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty {
+                @(
+                    [pscustomobject]@{ DisplayName = "  microsoft   BIZTALK   server 2020   cumulative update 6   kb5048971  " }
+                )
+            }
+
+            $found = Search-BTSCumulativeUpdate -CumulativeUpdateID "5048971" -BizTalkVersion "2020"
+            $found | Should -BeTrue
+        }
+
+        It "returns false when KB matches but BizTalk version does not" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty {
+                @(
+                    [pscustomobject]@{ DisplayName = "Microsoft BizTalk Server 2016 Cumulative Update 9 KB5005479" }
+                )
+            }
+
+            $found = Search-BTSCumulativeUpdate -CumulativeUpdateID "5005479" -BizTalkVersion "2020"
+            $found | Should -BeFalse
+        }
     }
 
     Context "Get-BTSCumulativeUpdateByDisplayName" {
@@ -143,6 +165,144 @@ Describe "CU detection functions" {
             $detected.Found | Should -BeTrue
             $detected.CUNumber | Should -Be 9
             $detected.KB | Should -Be "5005480"
+        }
+
+        It "uses install date to choose newest when CU numbers are equal" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty {
+                @(
+                    [pscustomobject]@{
+                        DisplayName = "Microsoft BizTalk Server 2020 Cumulative Update 6 KB5043408"
+                        InstallDate = "20241120"
+                    },
+                    [pscustomobject]@{
+                        DisplayName = "Microsoft BizTalk Server 2020 Cumulative Update 6 KB5048971"
+                        InstallDate = "20241121"
+                    }
+                )
+            }
+
+            $detected = Get-BTSCumulativeUpdateByDisplayName -BizTalkVersion "2020"
+            $detected.Found | Should -BeTrue
+            $detected.CUNumber | Should -Be 6
+            $detected.KB | Should -Be "5048971"
+        }
+    }
+
+    Context "Get-WinSCPVersionForBizTalk" {
+        It "returns null for unsupported BizTalk version" {
+            $result = Get-WinSCPVersionForBizTalk -BizTalkVersion "2013"
+
+            $result | Should -Be $null
+        }
+
+        It "returns 2020 RTM defaults when no CU is detected" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Get-BTSCumulativeUpdateByDisplayName {
+                [pscustomobject]@{
+                    Found = $false
+                    CUNumber = 0
+                    KB = $null
+                    DisplayName = $null
+                    InstallDate = $null
+                }
+            }
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Search-BTSCumulativeUpdate { $false }
+
+            $result = Get-WinSCPVersionForBizTalk -BizTalkVersion "2020"
+
+            $result.WinSCPVersion | Should -Be "5.15.4"
+            $result.CULabel | Should -Be "no CU"
+            $result.KB | Should -Be "none"
+            $result.CUFound | Should -BeFalse
+        }
+
+        It "maps 2020 CU via KB fallback when display-name detection does not find a match" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Get-BTSCumulativeUpdateByDisplayName {
+                [pscustomobject]@{
+                    Found = $false
+                    CUNumber = 0
+                    KB = $null
+                    DisplayName = $null
+                    InstallDate = $null
+                }
+            }
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Search-BTSCumulativeUpdate {
+                param($CumulativeUpdateID, $BizTalkVersion)
+                return ($BizTalkVersion -eq "2020" -and $CumulativeUpdateID -eq "5009901")
+            }
+
+            $result = Get-WinSCPVersionForBizTalk -BizTalkVersion "2020"
+
+            $result.CUFound | Should -BeTrue
+            $result.CULabel | Should -Be "CU4"
+            $result.KB | Should -Be "5009901"
+            $result.WinSCPVersion | Should -Be "5.19.2"
+        }
+
+        It "falls back to KB search when display-name CU number is unknown" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Get-BTSCumulativeUpdateByDisplayName {
+                [pscustomobject]@{
+                    Found = $true
+                    CUNumber = 99
+                    KB = "9999999"
+                    DisplayName = "Microsoft BizTalk Server 2020 Cumulative Update 99 KB9999999"
+                    InstallDate = "20260101"
+                }
+            }
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Search-BTSCumulativeUpdate {
+                param($CumulativeUpdateID, $BizTalkVersion)
+                return ($BizTalkVersion -eq "2020" -and $CumulativeUpdateID -eq "5009901")
+            }
+
+            $result = Get-WinSCPVersionForBizTalk -BizTalkVersion "2020"
+
+            $result.CUFound | Should -BeTrue
+            $result.CULabel | Should -Be "CU4"
+            $result.KB | Should -Be "5009901"
+            $result.WinSCPVersion | Should -Be "5.19.2"
+        }
+
+        It "uses mapped default KB when display-name CU match has no KB value" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Get-BTSCumulativeUpdateByDisplayName {
+                [pscustomobject]@{
+                    Found = $true
+                    CUNumber = 5
+                    KB = $null
+                    DisplayName = "Microsoft BizTalk Server 2020 Cumulative Update 5"
+                    InstallDate = "20231203"
+                }
+            }
+
+            $result = Get-WinSCPVersionForBizTalk -BizTalkVersion "2020"
+
+            $result.CUFound | Should -BeTrue
+            $result.CULabel | Should -Be "CU5"
+            $result.KB | Should -Be "5032870"
+            $result.WinSCPVersion | Should -Be "6.1.2"
+        }
+
+        It "maps 2016 CU by KB search ordering" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Search-BTSCumulativeUpdate {
+                param($CumulativeUpdateID, $BizTalkVersion)
+                return ($BizTalkVersion -eq "2016" -and $CumulativeUpdateID -eq "4528776")
+            }
+
+            $result = Get-WinSCPVersionForBizTalk -BizTalkVersion "2016"
+
+            $result.CUFound | Should -BeTrue
+            $result.CULabel | Should -Be "CU7"
+            $result.KB | Should -Be "4528776"
+            $result.WinSCPVersion | Should -Be "5.15.9"
+        }
+
+        It "returns 2016 RTM defaults when no CU KB matches are found" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Search-BTSCumulativeUpdate { $false }
+
+            $result = Get-WinSCPVersionForBizTalk -BizTalkVersion "2016"
+
+            $result.CUFound | Should -BeFalse
+            $result.CULabel | Should -Be "no CU"
+            $result.KB | Should -Be "none"
+            $result.WinSCPVersion | Should -Be "5.7.7"
         }
     }
 }

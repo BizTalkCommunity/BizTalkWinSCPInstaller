@@ -205,7 +205,7 @@ function Write-InstallerFinalOutcome {
 
 # Debug utility class for compact state snapshot logging.
 class InstallerDebugUtility {
-    static [void] WriteState([string]$Title, [hashtable]$State) {
+    static [void] WriteState([string]$Title, [System.Collections.IDictionary]$State) {
         if ($null -eq $State) {
             return
         }
@@ -241,7 +241,7 @@ function Write-InstallerStateSnapshot {
         [string]$Title,
 
         [Parameter(Mandatory = $true)]
-        [hashtable]$State
+        [System.Collections.IDictionary]$State
     )
 
     [InstallerDebugUtility]::WriteState($Title, $State)

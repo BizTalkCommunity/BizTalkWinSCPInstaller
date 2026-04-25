@@ -60,4 +60,22 @@ Describe "Get-InstallExecutionPlan" {
         $plan.RequiresElevationWarning | Should -BeTrue
         $plan.PrerequisiteFailure | Should -BeFalse
     }
+
+    It "proceeds silently for admin reinstall path" {
+        $plan = Get-InstallExecutionPlan -IsAdministrator $true -ForceInstall $true -WhatIf $false -AlreadyInstalledCorrect $false
+
+        $plan.CanProceed | Should -BeTrue
+        $plan.PrerequisiteFailure | Should -BeFalse
+        $plan.ShouldReinstall | Should -BeFalse
+        $plan.RequiresElevationWarning | Should -BeFalse
+    }
+
+    It "marks both prerequisite failure and reinstall intent for non-admin already-installed ForceInstall without WhatIf" {
+        $plan = Get-InstallExecutionPlan -IsAdministrator $false -ForceInstall $true -WhatIf $false -AlreadyInstalledCorrect $true
+
+        $plan.CanProceed | Should -BeFalse
+        $plan.PrerequisiteFailure | Should -BeTrue
+        $plan.ShouldReinstall | Should -BeTrue
+        $plan.RequiresElevationWarning | Should -BeFalse
+    }
 }

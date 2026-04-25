@@ -119,4 +119,49 @@ Describe "Resolve-WinSCPPackageLayout" {
             $result.DllPath | Should -Be $null
         }
     }
+
+    Context "When EXE exists only in content path" {
+        BeforeEach {
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Test-Path {
+                param($Path)
+                if ($Path -eq "C:\temp\WinSCP.5.19.2") { return $true }
+                if ($Path -match "\\content\\WinSCP\.exe$") { return $true }
+                if ($Path -match "\\lib\\netstandard2\.0\\WinSCPnet\.dll$") { return $true }
+                return $false
+            }
+        }
+
+        It "resolves EXE from content fallback path" {
+            $result = Resolve-WinSCPPackageLayout `
+                -PackageRoot "C:\temp\WinSCP.5.19.2" `
+                -ExeFileName "WinSCP.exe" `
+                -DllFileName "WinSCPnet.dll"
+
+            $result.IsResolved | Should -BeTrue
+            $result.ExePath | Should -Match "content\\WinSCP\.exe$"
+            $result.DllPath | Should -Match "lib\\netstandard2\.0\\WinSCPnet\.dll$"
+        }
+    }
+
+    Context "When neither standard paths nor recursive fallback find files" {
+        BeforeEach {
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Test-Path {
+                param($Path)
+                if ($Path -eq "C:\temp\WinSCP.5.19.2") { return $true }
+                return $false
+            }
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ChildItem { $null }
+        }
+
+        It "returns unresolved with null source paths" {
+            $result = Resolve-WinSCPPackageLayout `
+                -PackageRoot "C:\temp\WinSCP.5.19.2" `
+                -ExeFileName "WinSCP.exe" `
+                -DllFileName "WinSCPnet.dll"
+
+            $result.IsResolved | Should -BeFalse
+            $result.ExePath | Should -Be $null
+            $result.DllPath | Should -Be $null
+        }
+    }
 }

@@ -53,4 +53,17 @@ Describe "Get-PackageReadinessState" {
         $result.IsReady | Should -BeTrue
         $result.State | Should -Be "Ready"
     }
+
+    It "prioritizes MissingNuGet regardless of WinSCP artifact state" -ForEach @(
+        @{ Exe = $false; Dll = $false },
+        @{ Exe = $true; Dll = $false },
+        @{ Exe = $false; Dll = $true }
+    ) {
+        param($Exe, $Dll)
+
+        $result = Get-PackageReadinessState -NuGetExeExists $false -WinSCPExeExists $Exe -WinSCPDllExists $Dll
+
+        $result.IsReady | Should -BeFalse
+        $result.State | Should -Be "MissingNuGet"
+    }
 }

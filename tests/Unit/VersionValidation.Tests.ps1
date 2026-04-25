@@ -45,11 +45,28 @@ Describe "Test-WinSCPVersionString" {
         $result.ParsedVersion | Should -Be $null
     }
 
+    It "returns InvalidFormat for malformed numeric versions" -ForEach @("1.2.-1", "1..2", "99999999999999999999.1") {
+        $result = Test-WinSCPVersionString -WinSCPVersion $_
+
+        $result.IsValid | Should -BeFalse
+        $result.ErrorCode | Should -Be "InvalidFormat"
+        $result.ParsedVersion | Should -Be $null
+    }
+
     It "accepts valid dotted versions" -ForEach @("5.7.7", "6.3.5", "5.19.2.0") {
         $result = Test-WinSCPVersionString -WinSCPVersion $_
 
         $result.IsValid | Should -BeTrue
         $result.ErrorCode | Should -Be "None"
         $result.ParsedVersion | Should -Not -Be $null
+    }
+
+    It "returns parsed version details for valid input" {
+        $result = Test-WinSCPVersionString -WinSCPVersion "6.3.5"
+
+        $result.IsValid | Should -BeTrue
+        $result.ParsedVersion.Major | Should -Be 6
+        $result.ParsedVersion.Minor | Should -Be 3
+        $result.ParsedVersion.Build | Should -Be 5
     }
 }
