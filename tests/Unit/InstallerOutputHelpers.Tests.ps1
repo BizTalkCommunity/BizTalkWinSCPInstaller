@@ -204,7 +204,7 @@ Describe "Installer output helpers" {
             Write-BizTalkRegistryFallbackNotice
 
             Should -Invoke Write-InstallerError -ModuleName InstallWinSCPForBizTalk.Utils -Times 1 -ParameterFilter {
-                $ErrorMessage -match 'Env:BTSINSTALLPATH doesn`t exist'
+                $ErrorMessage -match 'Env:BTSINSTALLPATH does not exist'
             }
         }
 

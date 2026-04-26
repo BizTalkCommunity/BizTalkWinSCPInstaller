@@ -4,7 +4,7 @@ Focused banner/output tests for InstallWinSCPForBizTalk.ps1.
 
 .DESCRIPTION
 Bootstraps minimal Pester coverage for banner constants and final WhatIf output
-behavior in the current monolithic script layout.
+behavior in the current module-orchestrated script layout.
 #>
 
 if (-not (Get-Module -ListAvailable Pester | Where-Object { $_.Version.Major -ge 5 })) {

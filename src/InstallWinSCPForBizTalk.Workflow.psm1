@@ -76,7 +76,7 @@ function Invoke-BizTalkDetectionPhase {
                 $Context.Continue = $false
                 Write-InstallerBangError -LeadingNewLine -MessageLines @(
                     'Neither Microsoft BizTalk Server 2016 nor Microsoft BizTalk Server 2020 were found.'
-                    'Exiting'
+                    'Exiting...'
                 )
             }
         }
@@ -354,7 +354,7 @@ function Invoke-DownloadFolderPreparationPhase {
         $Context.nugetDownloadFolderAlreadyExists = Test-Path $Context.nugetDownloadFolder
         $Context.nugetDownloadFolderExists = $Context.nugetDownloadFolderAlreadyExists
 
-        Write-InstallerSectionHeader -Title 'Preparing the output folder to store the Nuget and WinSCP downloads' -LeadingNewLine
+        Write-InstallerSectionHeader -Title 'Preparing the output folder to store the NuGet and WinSCP downloads' -LeadingNewLine
         if ($Context.Continue -and -not $Context.nugetDownloadFolderAlreadyExists) {
             if ($Context.psCmdlet.ShouldProcess($Context.nugetDownloadFolder, 'Create Folder')) {
                 Write-InstallerSuccess "The target folder '$($Context.nugetDownloadFolder)' doesn't exist, creating the folder."
@@ -402,7 +402,7 @@ function Invoke-NuGetDownloadPhase {
         $nugetDownloadPlan = Get-NuGetDownloadPlan -TargetNugetExeAlreadyExists ([bool]$Context.targetNugetExeAlreadyExists) -ForceInstall ([bool]$Context.ForceInstall) -SourceNugetExe $Context.sourceNugetExe -TargetNugetExe $Context.targetNugetExe
         if ($nugetDownloadPlan.ShouldDownload) {
             Write-InstallerSuccess "`n$($Context.hashString)"
-            Write-InstallerSuccess 'Downloading Nuget from:'
+            Write-InstallerSuccess 'Downloading NuGet from:'
             Write-InstallerSuccess "`t'$($Context.sourceNugetExe)'"
             Write-InstallerSuccess 'Storing it in the folder'
             Write-InstallerSuccess "`t'$($Context.nugetDownloadFolder)'"
@@ -414,7 +414,7 @@ function Invoke-NuGetDownloadPhase {
                 if (-not $Context.targetNugetExeExists) {
                     $Context.Continue = $false
                     Write-InstallerBangError -LeadingNewLine -MessageLines @(
-                        'The download of the Nuget EXE from'
+                        'The download of the NuGet EXE from'
                         $Context.sourceNugetExe
                         'did not succeed'
                     )

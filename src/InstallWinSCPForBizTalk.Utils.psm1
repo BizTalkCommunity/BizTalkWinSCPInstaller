@@ -181,7 +181,7 @@ function Write-InstallerFinalOutcome {
         'DryRun' {
             Write-InstallerDelimitedMessage -MessageLines @(
                 'The parameter -WhatIf was set and this script executed without making'
-                'any changes and the output should checked to determine if it would have '
+                'any changes and the output should be checked to determine if it would have '
                 'run correctly.'
             ) -Delimiter 'Bang' -Level 'Success' -LeadingNewLine
         }
@@ -530,7 +530,7 @@ function Write-BizTalkRegistryFallbackNotice {
     .SYNOPSIS
     Writes standard warning when BTSINSTALLPATH is missing and registry fallback is used.
     #>
-    Write-InstallerError 'The Env:BTSINSTALLPATH doesn`t exist, checking to see if the path is in the registry HKLM:\SOFTWARE\Microsoft\BizTalk Server\3.0@InstallPath'
+    Write-InstallerError 'The Env:BTSINSTALLPATH does not exist, checking to see if the path is in the registry HKLM:\SOFTWARE\Microsoft\BizTalk Server\3.0@InstallPath'
 }
 
 # Emit terminal message when BizTalk installation cannot be located.
@@ -606,7 +606,7 @@ function Write-WinSCPNotInstalledNotice {
 
     $bangString = Get-InstallerBannerLine -Name 'Bang'
     Write-InstallerSuccess $bangString
-    Write-InstallerSuccess "WinSCP $WinSCPVersion is NOT installed in the"
+    Write-InstallerSuccess "WinSCP $WinSCPVersion is not installed in the"
     Write-InstallerSuccess 'Microsoft BizTalk Server folder and needs to be installed.'
     Write-InstallerSuccess $bangString
 }
