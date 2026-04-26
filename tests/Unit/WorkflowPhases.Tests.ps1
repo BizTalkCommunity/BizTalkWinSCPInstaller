@@ -227,6 +227,27 @@ Describe "Workflow phase functions" {
 
             $ctx.Continue | Should -BeFalse
         }
+
+        It "does not emit a stray trailing hash banner after the existing WinSCP status messages" {
+            $mockFileInfo = [PSCustomObject]@{
+                VersionInfo = [PSCustomObject]@{ ProductVersion = '5.15.4' }
+            }
+            Mock -ModuleName InstallWinSCPForBizTalk.Workflow Test-Path { return $true }
+            Mock -ModuleName InstallWinSCPForBizTalk.Workflow Get-Item { return $mockFileInfo }
+            Mock -ModuleName InstallWinSCPForBizTalk.Workflow Get-InstallExecutionPlan {
+                [PSCustomObject]@{ ShouldReinstall = $false; ShouldSkipBecauseInstalled = $false; CanProceed = $true; RequiresElevationWarning = $false }
+            }
+
+            $ctx = script:New-TestContext
+            Invoke-ExistingWinSCPCheckPhase -Context $ctx
+
+            Should -Invoke Write-InstallerSuccess -ModuleName InstallWinSCPForBizTalk.Workflow -Times 1 -ParameterFilter {
+                $SuccessMessage -eq "Detected WinSCP $($ctx.winSCPVersion) is already installed in Microsoft BizTalk Server."
+            }
+            Should -Invoke Write-InstallerSuccess -ModuleName InstallWinSCPForBizTalk.Workflow -Times 0 -ParameterFilter {
+                $SuccessMessage -eq $ctx.hashString
+            }
+        }
     }
 
     # -------------------------------------------------------------------------

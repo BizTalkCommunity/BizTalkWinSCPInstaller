@@ -250,8 +250,6 @@ function Invoke-ExistingWinSCPCheckPhase {
         else {
             Write-WinSCPNotInstalledNotice -WinSCPVersion $Context.winSCPVersion
         }
-
-        Write-InstallerSuccess $Context.hashString
     }
 
     Write-ExistingWinSCPSnapshot -ExeProductVersionInstalled $Context.btsWinSCPEXEProductVersionInstalled -DllProductVersionInstalled $Context.btsWinSCPDLLProductVersionInstalled -ProductVersionRequired $Context.winSCPProductVersionRequired -InstalledAndCorrect $Context.btsWinSCPProductInstalledAndCorrect -TargetExePath $Context.btsTargetWinSCPExe -TargetDllPath $Context.btsTargetWinSCPDll
