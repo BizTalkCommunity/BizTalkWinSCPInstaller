@@ -96,6 +96,39 @@ Default output:
 
 - `dist\BizTalkWinSCPInstaller-Production`
 
+### Recommended: probe-first workflow (highest success)
+
+When the build machine does not have BizTalk installed, run this on the target
+BizTalk machine first:
+
+```powershell
+.\scripts\New-BizTalkProbeReport.ps1 -OutputPath C:\Temp\biztalk-probe.json
+```
+
+Then copy `biztalk-probe.json` back to the build machine and build the bundle:
+
+```powershell
+.\scripts\Build-ProductionPackage.ps1 -Clean -ProbeReportPath C:\Temp\biztalk-probe.json
+```
+
+To also pre-download the exact WinSCP payload for offline production use:
+
+```powershell
+.\scripts\Build-ProductionPackage.ps1 -Clean -ProbeReportPath C:\Temp\biztalk-probe.json -FetchNuGetPayload
+```
+
+This provides a high-confidence package with minimal manual input.
+
+### Manual workflow (fallback)
+
+If a probe report is not available, you can specify the WinSCP version directly:
+
+```powershell
+.\scripts\Build-ProductionPackage.ps1 -Clean -TargetWinSCPVersion 6.3.5 -FetchNuGetPayload
+```
+
+Use this mode only when you are sure of the target BizTalk/CU mapping.
+
 ### Build minimal bundle with offline payload
 
 ```powershell

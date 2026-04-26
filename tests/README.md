@@ -33,6 +33,7 @@ Invoke-Pester tests/Unit/Resolve-WinSCPPackageLayout.Tests.ps1 -Verbose
 | `PackageReadiness.Tests.ps1` | `Get-PackageReadinessState` | NuGet and package artifact readiness (missing/incomplete/ready) |
 | `FinalOutcome.Tests.ps1` | `Get-FinalExecutionOutcome` | Final outcome classification (success, dry-run, prerequisite failure, install failure) |
 | `Build-ProductionPackage.Tests.ps1` | `scripts/Build-ProductionPackage.ps1` | Minimal production bundle creation and optional offline payload inclusion |
+| `New-BizTalkProbeReport.Tests.ps1` | `scripts/New-BizTalkProbeReport.ps1` | Probe report generation for non-BizTalk build workflows |
 | `CyclomaticComplexity.Tests.ps1` | Script body and functions | Cyclomatic complexity gates enforced in local runs and CI |
 
 ### Planned Tests (Stage 2+)

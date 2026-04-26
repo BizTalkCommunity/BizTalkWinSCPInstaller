@@ -57,4 +57,29 @@ Describe "Build-ProductionPackage script" {
         $expectedLiteral = [regex]::Escape("Join-Path `$PSScriptRoot 'nuget'")
         $wrapperContent | Should -Match $expectedLiteral
     }
+
+    It "copies probe report into the bundle and records selected version" {
+        $outputFolder = Join-Path $script:testRoot 'bundle-with-probe'
+        $probePath = Join-Path $script:testRoot 'biztalk-probe.json'
+        $probe = @{
+            schemaVersion = '1.0'
+            bizTalkDetected = $true
+            bizTalkVersion = '2020'
+            selectedWinSCPVersion = '6.3.5'
+        }
+        $probe | ConvertTo-Json | Set-Content -Path $probePath -Encoding UTF8
+
+        & $script:builderPath -OutputFolder $outputFolder -Clean -ProbeReportPath $probePath | Out-Null
+
+        Test-Path (Join-Path $outputFolder 'biztalk-probe.json') | Should -BeTrue
+        $manifest = Get-Content -Path (Join-Path $outputFolder 'package-manifest.json') -Raw | ConvertFrom-Json
+        $manifest.selectedWinSCPVersion | Should -Be '6.3.5'
+        $manifest.probeReportIncluded | Should -BeTrue
+    }
+
+    It "requires a target version or probe when fetch payload is requested" {
+        $outputFolder = Join-Path $script:testRoot 'bundle-fetch-without-version'
+
+        { & $script:builderPath -OutputFolder $outputFolder -Clean -FetchNuGetPayload } | Should -Throw -ExpectedMessage '*provide -TargetWinSCPVersion or -ProbeReportPath*'
+    }
 }
