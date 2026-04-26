@@ -5,9 +5,12 @@
 # Logging subsystem — module-scope state
 # ---------------------------------------------------------------------------
 $script:InstallerLogState = @{
-    Enabled  = $false
-    LogFile  = $null
-    LogLevel = 'Info'
+    Enabled         = $false
+    LogFile         = $null
+    LogLevel        = 'Info'
+    EventLogEnabled = $false
+    EventLogName    = 'Application'
+    EventSource     = 'BizTalkWinSCPInstaller'
 }
 
 # Returns the numeric rank of a log level for threshold comparison.
@@ -39,6 +42,93 @@ function Test-InstallerLogLevelEnabled {
     return (Get-InstallerLogLevelRank -Level $Level) -le (Get-InstallerLogLevelRank -Level $script:InstallerLogState.LogLevel)
 }
 
+# Maps installer log levels to Windows Event Log entry types.
+function Convert-InstallerEventEntryType {
+    [OutputType([string])]
+    Param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Error', 'Info', 'Verbose', 'Debug')]
+        [string]$Level
+    )
+
+    if ($Level -eq 'Error') { return 'Error' }
+    return 'Information'
+}
+
+# Returns whether the configured event source already exists.
+function Test-InstallerEventSourceExists {
+    [OutputType([bool])]
+    Param(
+        [Parameter(Mandatory = $true)]
+        [string]$EventSource
+    )
+
+    return [System.Diagnostics.EventLog]::SourceExists($EventSource)
+}
+
+# Registers a Windows Event Log source when missing.
+function New-InstallerEventSource {
+    Param(
+        [Parameter(Mandatory = $true)]
+        [string]$EventLogName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$EventSource
+    )
+
+    New-EventLog -LogName $EventLogName -Source $EventSource
+}
+
+# Writes a single Windows Event Log entry for installer output.
+function Write-InstallerEventLogRecord {
+    Param(
+        [Parameter(Mandatory = $true)]
+        [string]$EventLogName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$EventSource,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Error', 'Information')]
+        [string]$EntryType,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    Write-EventLog -LogName $EventLogName -Source $EventSource -EntryType $EntryType -EventId 1000 -Category 0 -Message $Message
+}
+
+# Writes an entry to Windows Event Log when event logging is enabled.
+function Write-InstallerEventLogEntry {
+    Param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Error', 'Info', 'Verbose', 'Debug')]
+        [string]$Level,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    if (-not $script:InstallerLogState.EventLogEnabled) { return }
+
+    try {
+        if (-not (Test-InstallerEventSourceExists -EventSource $script:InstallerLogState.EventSource)) {
+            New-InstallerEventSource -EventLogName $script:InstallerLogState.EventLogName -EventSource $script:InstallerLogState.EventSource
+        }
+
+        $entryType = Convert-InstallerEventEntryType -Level $Level
+        Write-InstallerEventLogRecord -EventLogName $script:InstallerLogState.EventLogName -EventSource $script:InstallerLogState.EventSource -EntryType $entryType -Message $Message
+    }
+    catch {
+        if (-not [string]::IsNullOrWhiteSpace($script:InstallerLogState.LogFile)) {
+            $timestamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+            $warning = "[$timestamp] [WARN] Event log write failed: $($_.Exception.Message)"
+            Add-Content -Path $script:InstallerLogState.LogFile -Value $warning -Encoding UTF8
+        }
+    }
+}
+
 # Appends a single timestamped entry to the active log file when level qualifies.
 function Write-InstallerLogEntry {
     Param(
@@ -53,6 +143,7 @@ function Write-InstallerLogEntry {
     $timestamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
     $line = "[$timestamp] [$($Level.ToUpper())] $Message"
     Add-Content -Path $script:InstallerLogState.LogFile -Value $line -Encoding UTF8
+    Write-InstallerEventLogEntry -Level $Level -Message $Message
 }
 
 # Creates a timestamped log file and activates the logging sink for this session.
@@ -64,7 +155,16 @@ function Initialize-InstallerLogging {
 
         [Parameter(Mandatory = $false)]
         [ValidateSet('Info', 'Verbose', 'Debug')]
-        [string]$LogLevel = 'Info'
+        [string]$LogLevel = 'Info',
+
+        [Parameter(Mandatory = $false)]
+        [switch]$EnableEventLog,
+
+        [Parameter(Mandatory = $false)]
+        [string]$EventLogName = 'Application',
+
+        [Parameter(Mandatory = $false)]
+        [string]$EventSource = 'BizTalkWinSCPInstaller'
     )
 
     if (-not (Test-Path $LogFolder)) {
@@ -80,9 +180,12 @@ function Initialize-InstallerLogging {
         $logFile = Join-Path $LogFolder ('{0}-{1:D2}.log' -f $baseName, $suffix)
     }
 
-    $script:InstallerLogState.Enabled  = $true
-    $script:InstallerLogState.LogFile  = $logFile
-    $script:InstallerLogState.LogLevel = $LogLevel
+    $script:InstallerLogState.Enabled         = $true
+    $script:InstallerLogState.LogFile         = $logFile
+    $script:InstallerLogState.LogLevel        = $LogLevel
+    $script:InstallerLogState.EventLogEnabled = [bool]$EnableEventLog
+    $script:InstallerLogState.EventLogName    = $EventLogName
+    $script:InstallerLogState.EventSource     = $EventSource
 
     @(
         '================================================================================'
@@ -96,17 +199,26 @@ function Initialize-InstallerLogging {
     ) | Set-Content -Path $logFile -Encoding UTF8
 
     Write-InstallerLogEntry -Level 'Info' -Message ("Support log file: $logFile")
+    if ($EnableEventLog) {
+        Write-InstallerLogEntry -Level 'Info' -Message ("Windows Event Log sink enabled: LogName='{0}', Source='{1}'" -f $EventLogName, $EventSource)
+    }
 
     return @{
-        LogFile  = $logFile
-        LogLevel = $LogLevel
+        LogFile         = $logFile
+        LogLevel        = $LogLevel
+        EventLogEnabled = [bool]$EnableEventLog
+        EventLogName    = $EventLogName
+        EventSource     = $EventSource
     }
 }
 
 # Deactivates the logging sink and releases the log file reference.
 function Disable-InstallerLogging {
-    $script:InstallerLogState.Enabled = $false
-    $script:InstallerLogState.LogFile = $null
+    $script:InstallerLogState.Enabled         = $false
+    $script:InstallerLogState.LogFile         = $null
+    $script:InstallerLogState.EventLogEnabled = $false
+    $script:InstallerLogState.EventLogName    = 'Application'
+    $script:InstallerLogState.EventSource     = 'BizTalkWinSCPInstaller'
 }
 
 # ---------------------------------------------------------------------------

@@ -65,7 +65,19 @@ Param(
         Mandatory = $false
     )]
     [ValidateSet('Info', 'Verbose', 'Debug')]
-    [string]$LogLevel = 'Info'
+    [string]$LogLevel = 'Info',
+    [Parameter(
+        Mandatory = $false
+    )]
+    [switch]$EnableEventLog,
+    [Parameter(
+        Mandatory = $false
+    )]
+    [string]$EventLogName = 'Application',
+    [Parameter(
+        Mandatory = $false
+    )]
+    [string]$EventSource = 'BizTalkWinSCPInstaller'
 )
 # Import modules used by this installer workflow.
 $coreModulePath = Join-Path $PSScriptRoot "src\InstallWinSCPForBizTalk.Core.psm1"
@@ -96,11 +108,11 @@ elseif ($VerbosePreference -ne 'SilentlyContinue' -and $effectiveLogLevel -eq 'I
     $effectiveLogLevel = 'Verbose'
 }
 
-$loggingSession = Initialize-InstallerLogging -LogFolder $LogFolder -LogLevel $effectiveLogLevel
+$loggingSession = Initialize-InstallerLogging -LogFolder $LogFolder -LogLevel $effectiveLogLevel -EnableEventLog:$EnableEventLog -EventLogName $EventLogName -EventSource $EventSource
 
 $isAdministrator = Test-IsAdministrator
 Write-InstallerLogEntry -Level 'Info' -Message 'Installer execution started.'
-Write-InstallerLogEntry -Level 'Info' -Message ("Parameters: NuGetDownloadFolder='{0}'; ForceInstall={1}; WhatIf={2}" -f $nugetDownloadFolder, [bool]$ForceInstall, [bool]$WhatIfPreference)
+Write-InstallerLogEntry -Level 'Info' -Message ("Parameters: NuGetDownloadFolder='{0}'; ForceInstall={1}; WhatIf={2}; EventLogEnabled={3}" -f $nugetDownloadFolder, [bool]$ForceInstall, [bool]$WhatIfPreference, [bool]$EnableEventLog)
 # Default WinSCP configuration and package layout notes.
 # - Start with a safe default (BizTalk 2016 RTM -> WinSCP 5.7.7).
 # - Actual WinSCP version is selected later from detected BizTalk CU.
@@ -136,6 +148,9 @@ $workflowContext = @{
     InvokeWebRequest    = { param($Uri, $OutFile) Invoke-WebRequest -Uri $Uri -OutFile $OutFile }
     logFilePath         = $loggingSession.LogFile
     logLevel            = $loggingSession.LogLevel
+    eventLogEnabled     = [bool]$loggingSession.EventLogEnabled
+    eventLogName        = $loggingSession.EventLogName
+    eventSource         = $loggingSession.EventSource
 }
 
 $bizTalkInstallFolderFromEnv = (Get-Item Env:BTSINSTALLPATH).Value

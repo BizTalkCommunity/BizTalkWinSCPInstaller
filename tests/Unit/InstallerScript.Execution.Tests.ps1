@@ -219,6 +219,19 @@ Describe "InstallWinSCPForBizTalk script execution" {
         $logContent | Should -Match "Installer execution completed with outcome 'DryRun'\."
     }
 
+    It "accepts EnableEventLog and records event sink activation in support log" {
+        Set-Content -Path (Join-Path $script:nugetFolder "nuget.exe") -Value "fake nuget" -Encoding ASCII
+        Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
+
+        & $script:installerPath -nugetDownloadFolder $script:nugetFolder -LogFolder $script:logFolder -EnableEventLog -EventSource 'BizTalkWinSCPInstaller.Tests' -WhatIf -Confirm:$false
+
+        $logFiles = Get-ChildItem -Path $script:logFolder -Filter 'BizTalkWinSCPInstaller-*.log'
+        $logFiles.Count | Should -Be 1
+
+        $logContent = Get-Content -Path $logFiles[0].FullName -Raw
+        $logContent | Should -Match "Windows Event Log sink enabled: LogName='Application', Source='BizTalkWinSCPInstaller.Tests'"
+    }
+
     It "uses TEMP-based default log folder when -LogFolder is not specified" {
         Set-Content -Path (Join-Path $script:nugetFolder "nuget.exe") -Value "fake nuget" -Encoding ASCII
         Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
@@ -245,7 +258,7 @@ Describe "InstallWinSCPForBizTalk script execution" {
 
         $logFiles = Get-ChildItem -Path $script:logFolder -Filter 'BizTalkWinSCPInstaller-*.log'
         $logFiles.Count | Should -Be 1
-        (Get-Content -Path $logFiles[0].FullName -Raw) | Should -Match 'LogLevel: Verbose'
+        (Get-Content -Path $logFiles[0].FullName -Raw) | Should -Match 'LogLevel\s+:\s+Verbose'
     }
 
     It "promotes log level to Debug when DebugPreference is active in the calling scope" {
@@ -263,6 +276,6 @@ Describe "InstallWinSCPForBizTalk script execution" {
 
         $logFiles = Get-ChildItem -Path $script:logFolder -Filter 'BizTalkWinSCPInstaller-*.log'
         $logFiles.Count | Should -Be 1
-        (Get-Content -Path $logFiles[0].FullName -Raw) | Should -Match 'LogLevel: Debug'
+        (Get-Content -Path $logFiles[0].FullName -Raw) | Should -Match 'LogLevel\s+:\s+Debug'
     }
 }

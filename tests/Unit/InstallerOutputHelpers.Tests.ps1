@@ -59,6 +59,30 @@ Describe "Installer output helpers" {
             $infoLog    | Should -Not -Match '\[VERBOSE\]'
             $verboseLog | Should -Match '\[VERBOSE\] Test snapshot'
         }
+
+        It "writes event records when event log sink is enabled" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils Test-InstallerEventSourceExists { $true }
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils Write-InstallerEventLogRecord {}
+
+            Initialize-InstallerLogging -LogFolder $script:logRoot -LogLevel 'Info' -EnableEventLog -EventLogName 'Application' -EventSource 'BizTalkWinSCPInstaller.Tests' | Out-Null
+            Write-InstallerLogEntry -Level 'Info' -Message 'Event sink test line'
+
+            Should -Invoke Write-InstallerEventLogRecord -ModuleName InstallWinSCPForBizTalk.Utils -Times 3 -ParameterFilter {
+                $EventLogName -eq 'Application' -and $EventSource -eq 'BizTalkWinSCPInstaller.Tests'
+            }
+        }
+
+        It "falls back to warning line in file log when event log write fails" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils Test-InstallerEventSourceExists { $true }
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils Write-InstallerEventLogRecord { throw 'Event sink unavailable' }
+
+            Initialize-InstallerLogging -LogFolder $script:logRoot -LogLevel 'Info' -EnableEventLog | Out-Null
+            Write-InstallerLogEntry -Level 'Info' -Message 'Event sink fallback test'
+
+            $logFile = Get-ChildItem -Path $script:logRoot -Filter 'BizTalkWinSCPInstaller-*.log' | Select-Object -First 1
+            $content = Get-Content -Path $logFile.FullName -Raw
+            $content | Should -Match '\[WARN\] Event log write failed:'
+        }
     }
 
     Context "Get-InstallerBannerLine" {
