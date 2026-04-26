@@ -78,6 +78,41 @@ If production servers do not have internet access:
 
 If required package files already exist, the script reuses them instead of downloading again.
 
+## Build Minimal Production Bundle
+
+To reduce production attack surface, you can build a minimal deployment bundle that
+contains only runtime installer essentials (no tests/docs/dev helpers).
+
+This build step does **not** require BizTalk to be installed on the machine that
+creates the production bundle.
+
+### Build minimal bundle
+
+```powershell
+.\scripts\Build-ProductionPackage.ps1 -Clean
+```
+
+Default output:
+
+- `dist\BizTalkWinSCPInstaller-Production`
+
+### Build minimal bundle with offline payload
+
+```powershell
+.\scripts\Build-ProductionPackage.ps1 -Clean -NuGetPayloadFolder C:\Temp\winscp-cache
+```
+
+When `-NuGetPayloadFolder` is supplied, the payload is copied into `./nuget` in the
+bundle and `Run-Installer.ps1` defaults to using that local folder.
+
+### Run in production
+
+Copy the generated bundle to the target server and run:
+
+```powershell
+.\Run-Installer.ps1
+```
+
 ## Compatibility Matrix
 
 The script includes explicit mapping for these versions.

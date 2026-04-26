@@ -32,6 +32,7 @@ Invoke-Pester tests/Unit/Resolve-WinSCPPackageLayout.Tests.ps1 -Verbose
 | `VersionValidation.Tests.ps1` | `Test-WinSCPVersionString` | Missing/invalid/valid WinSCP version validation and parsing behavior |
 | `PackageReadiness.Tests.ps1` | `Get-PackageReadinessState` | NuGet and package artifact readiness (missing/incomplete/ready) |
 | `FinalOutcome.Tests.ps1` | `Get-FinalExecutionOutcome` | Final outcome classification (success, dry-run, prerequisite failure, install failure) |
+| `Build-ProductionPackage.Tests.ps1` | `scripts/Build-ProductionPackage.ps1` | Minimal production bundle creation and optional offline payload inclusion |
 | `CyclomaticComplexity.Tests.ps1` | Script body and functions | Cyclomatic complexity gates enforced in local runs and CI |
 
 ### Planned Tests (Stage 2+)

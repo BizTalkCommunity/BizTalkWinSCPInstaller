@@ -31,3 +31,4 @@ validation-*.out.txt
 # Local diagnostics folders
 artifacts/
 logs/
+dist/
