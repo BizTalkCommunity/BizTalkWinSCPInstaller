@@ -22,3 +22,12 @@ Thumbs.db
 # NuGet
 packages/
 *.nupkg
+
+# Local validation artifacts
+coverage.xml
+validation.out.txt
+validation-*.out.txt
+
+# Local diagnostics folders
+artifacts/
+logs/
