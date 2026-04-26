@@ -23,6 +23,7 @@ Describe "InstallWinSCPForBizTalk script execution" {
         $script:testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("BizTalkWinSCPInstaller.Tests." + [guid]::NewGuid().ToString("N"))
         $script:bizTalkFolder = Join-Path $script:testRoot "BizTalk"
         $script:nugetFolder = Join-Path $script:testRoot "nuget"
+        $script:logFolder = Join-Path $script:testRoot "logs"
         New-Item -Path $script:bizTalkFolder -ItemType Directory -Force | Out-Null
         New-Item -Path $script:nugetFolder -ItemType Directory -Force | Out-Null
 
@@ -200,5 +201,118 @@ Describe "InstallWinSCPForBizTalk script execution" {
         Test-Path (Join-Path $script:bizTalkFolder "WinSCP.exe") | Should -BeFalse
         Test-Path (Join-Path $script:bizTalkFolder "WinSCPnet.dll") | Should -BeFalse
     }
+    It "writes a timestamped support log with detailed entries when Debug logging is requested" {
+        Set-Content -Path (Join-Path $script:nugetFolder "nuget.exe") -Value "fake nuget" -Encoding ASCII
+        Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
 
+        & $script:installerPath -nugetDownloadFolder $script:nugetFolder -LogFolder $script:logFolder -LogLevel Debug -WhatIf -Confirm:$false
+
+        $logFiles = Get-ChildItem -Path $script:logFolder -Filter 'BizTalkWinSCPInstaller-*.log'
+        $logFiles.Count | Should -Be 1
+        $logFiles[0].Name | Should -Match '^BizTalkWinSCPInstaller-\d{4}-\d{2}-\d{2}-\d{6}(?:-\d{2})?\.log$'
+
+        $logContent = Get-Content -Path $logFiles[0].FullName -Raw
+        $logContent | Should -Match 'BizTalk WinSCP Installer log'
+        $logContent | Should -Match 'Support log file:'
+        $logContent | Should -Match 'Parameters: NuGetDownloadFolder='
+        $logContent | Should -Match '\[VERBOSE\] The result of the search for the BizTalk Server:'
+        $logContent | Should -Match "Installer execution completed with outcome 'DryRun'\."
+    }
+
+    It "accepts EnableEventLog and records event sink activation in support log" {
+        Set-Content -Path (Join-Path $script:nugetFolder "nuget.exe") -Value "fake nuget" -Encoding ASCII
+        Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
+
+        & $script:installerPath -nugetDownloadFolder $script:nugetFolder -LogFolder $script:logFolder -EnableEventLog -EventSource 'BizTalkWinSCPInstaller.Tests' -WhatIf -Confirm:$false
+
+        $logFiles = Get-ChildItem -Path $script:logFolder -Filter 'BizTalkWinSCPInstaller-*.log'
+        $logFiles.Count | Should -Be 1
+
+        $logContent = Get-Content -Path $logFiles[0].FullName -Raw
+        $logContent | Should -Match "Windows Event Log sink enabled: LogName='Application', Source='BizTalkWinSCPInstaller.Tests'"
+    }
+
+    It "uses TEMP-based default log folder when -LogFolder is not specified" {
+        Set-Content -Path (Join-Path $script:nugetFolder "nuget.exe") -Value "fake nuget" -Encoding ASCII
+        Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
+
+        $previousTemp = $env:TEMP
+        try {
+            $env:TEMP = $script:testRoot
+            & $script:installerPath -nugetDownloadFolder $script:nugetFolder -WhatIf -Confirm:$false
+
+            $defaultLogFolder = Join-Path (Join-Path $script:testRoot 'BizTalkWinSCPInstaller') 'logs'
+            $logFiles = Get-ChildItem -Path $defaultLogFolder -Filter 'BizTalkWinSCPInstaller-*.log' -ErrorAction SilentlyContinue
+            $logFiles.Count | Should -Be 1
+        }
+        finally {
+            $env:TEMP = $previousTemp
+        }
+    }
+
+    It "promotes log level to Verbose when the script is invoked with -Verbose" {
+        Set-Content -Path (Join-Path $script:nugetFolder "nuget.exe") -Value "fake nuget" -Encoding ASCII
+        Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
+
+        & $script:installerPath -nugetDownloadFolder $script:nugetFolder -LogFolder $script:logFolder -WhatIf -Confirm:$false -Verbose 4>$null
+
+        $logFiles = Get-ChildItem -Path $script:logFolder -Filter 'BizTalkWinSCPInstaller-*.log'
+        $logFiles.Count | Should -Be 1
+        (Get-Content -Path $logFiles[0].FullName -Raw) | Should -Match 'LogLevel\s+:\s+Verbose'
+    }
+
+    It "promotes log level to Debug when DebugPreference is active in the calling scope" {
+        Set-Content -Path (Join-Path $script:nugetFolder "nuget.exe") -Value "fake nuget" -Encoding ASCII
+        Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
+
+        $previousDebugPref = $DebugPreference
+        try {
+            $DebugPreference = 'Continue'
+            & $script:installerPath -nugetDownloadFolder $script:nugetFolder -LogFolder $script:logFolder -WhatIf -Confirm:$false 5>$null
+        }
+        finally {
+            $DebugPreference = $previousDebugPref
+        }
+
+        $logFiles = Get-ChildItem -Path $script:logFolder -Filter 'BizTalkWinSCPInstaller-*.log'
+        $logFiles.Count | Should -Be 1
+        (Get-Content -Path $logFiles[0].FullName -Raw) | Should -Match 'LogLevel\s+:\s+Debug'
+    }
+
+    It "uses TEMP\\nuget default when nugetDownloadFolder is omitted" {
+        $previousTemp = $env:TEMP
+        try {
+            $env:TEMP = $script:testRoot
+            $defaultNugetFolder = Join-Path $script:testRoot 'nuget'
+            $packageRoot = Join-Path $defaultNugetFolder 'WinSCP.5.15.4'
+            $toolsPath = Join-Path $packageRoot 'tools'
+            $dllPath = Join-Path $packageRoot 'lib/netstandard2.0'
+
+            New-Item -Path $toolsPath -ItemType Directory -Force | Out-Null
+            New-Item -Path $dllPath -ItemType Directory -Force | Out-Null
+            Set-Content -Path (Join-Path $toolsPath 'WinSCP.exe') -Value 'fake exe' -Encoding ASCII
+            Set-Content -Path (Join-Path $dllPath 'WinSCPnet.dll') -Value 'fake dll' -Encoding ASCII
+            Set-Content -Path (Join-Path $defaultNugetFolder 'nuget.exe') -Value 'fake nuget' -Encoding ASCII
+
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
+
+            & $script:installerPath -LogFolder $script:logFolder -WhatIf -Confirm:$false
+
+            $logFile = Get-ChildItem -Path $script:logFolder -Filter 'BizTalkWinSCPInstaller-*.log' | Select-Object -First 1
+            $content = Get-Content -Path $logFile.FullName -Raw
+            $content | Should -Match "Parameters: NuGetDownloadFolder='.*\\nuget'"
+        }
+        finally {
+            $env:TEMP = $previousTemp
+        }
+    }
+
+    It "throws when the core module is missing from script root" {
+        $isolatedRoot = Join-Path $script:testRoot 'isolated-script-root'
+        New-Item -Path $isolatedRoot -ItemType Directory -Force | Out-Null
+        $isolatedScript = Join-Path $isolatedRoot 'InstallWinSCPForBizTalk.ps1'
+        Copy-Item -Path $script:installerPath -Destination $isolatedScript -Force
+
+        { & $isolatedScript -WhatIf -Confirm:$false } | Should -Throw -ExpectedMessage 'Required core module was not found*'
+    }
 }

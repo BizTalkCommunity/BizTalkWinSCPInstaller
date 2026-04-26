@@ -56,7 +56,28 @@ Param(
     [Parameter(
         Mandatory = $false
     )]
-    [switch]$ForceInstall
+    [switch]$ForceInstall,
+    [Parameter(
+        Mandatory = $false
+    )]
+    [string]$LogFolder,
+    [Parameter(
+        Mandatory = $false
+    )]
+    [ValidateSet('Info', 'Verbose', 'Debug')]
+    [string]$LogLevel = 'Info',
+    [Parameter(
+        Mandatory = $false
+    )]
+    [switch]$EnableEventLog,
+    [Parameter(
+        Mandatory = $false
+    )]
+    [string]$EventLogName = 'Application',
+    [Parameter(
+        Mandatory = $false
+    )]
+    [string]$EventSource = 'BizTalkWinSCPInstaller'
 )
 # Import modules used by this installer workflow.
 $coreModulePath = Join-Path $PSScriptRoot "src\InstallWinSCPForBizTalk.Core.psm1"
@@ -75,7 +96,23 @@ Import-Module $workflowModulePath
 $Continue = $true;
 $PrerequisiteFailure = $false;
 
+if ([string]::IsNullOrWhiteSpace($LogFolder)) {
+    $LogFolder = Join-Path (Join-Path (Get-Item Env:TEMP).Value 'BizTalkWinSCPInstaller') 'logs'
+}
+
+$effectiveLogLevel = $LogLevel
+if ($DebugPreference -ne 'SilentlyContinue') {
+    $effectiveLogLevel = 'Debug'
+}
+elseif ($VerbosePreference -ne 'SilentlyContinue' -and $effectiveLogLevel -eq 'Info') {
+    $effectiveLogLevel = 'Verbose'
+}
+
+$loggingSession = Initialize-InstallerLogging -LogFolder $LogFolder -LogLevel $effectiveLogLevel -EnableEventLog:$EnableEventLog -EventLogName $EventLogName -EventSource $EventSource
+
 $isAdministrator = Test-IsAdministrator
+Write-InstallerLogEntry -Level 'Info' -Message 'Installer execution started.'
+Write-InstallerLogEntry -Level 'Info' -Message ("Parameters: NuGetDownloadFolder='{0}'; ForceInstall={1}; WhatIf={2}; EventLogEnabled={3}" -f $nugetDownloadFolder, [bool]$ForceInstall, [bool]$WhatIfPreference, [bool]$EnableEventLog)
 # Default WinSCP configuration and package layout notes.
 # - Start with a safe default (BizTalk 2016 RTM -> WinSCP 5.7.7).
 # - Actual WinSCP version is selected later from detected BizTalk CU.
@@ -109,6 +146,11 @@ $workflowContext = @{
     nugetDownloadFolder = $nugetDownloadFolder
     psCmdlet            = $PSCmdlet
     InvokeWebRequest    = { param($Uri, $OutFile) Invoke-WebRequest -Uri $Uri -OutFile $OutFile }
+    logFilePath         = $loggingSession.LogFile
+    logLevel            = $loggingSession.LogLevel
+    eventLogEnabled     = [bool]$loggingSession.EventLogEnabled
+    eventLogName        = $loggingSession.EventLogName
+    eventSource         = $loggingSession.EventSource
 }
 
 $bizTalkInstallFolderFromEnv = (Get-Item Env:BTSINSTALLPATH).Value
@@ -170,4 +212,6 @@ $WinSCPDLLTargetExists = [bool]$workflowContext.WinSCPDLLTargetExists
 # Final outcome: single standardized success/warning/error path
 $finalOutcome = Get-FinalExecutionOutcome -InstalledSuccessfully $btsWinSCPProductInstalledAndCorrect -WhatIf ([bool]$WhatIfPreference) -PrerequisiteFailure $PrerequisiteFailure -ContinueFlag $Continue
 Write-InstallerFinalOutcome -Outcome $finalOutcome.Outcome -WinSCPVersion $winSCPVersion
+Write-InstallerLogEntry -Level 'Info' -Message ("Installer execution completed with outcome '$($finalOutcome.Outcome)'.")
+Disable-InstallerLogging
 

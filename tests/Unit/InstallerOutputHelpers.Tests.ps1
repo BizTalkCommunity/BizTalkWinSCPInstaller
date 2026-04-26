@@ -18,7 +18,148 @@ Describe "Installer output helpers" {
     }
 
     AfterAll {
+        Disable-InstallerLogging
         Remove-Module InstallWinSCPForBizTalk.Utils -ErrorAction SilentlyContinue
+    }
+
+    Context "Initialize-InstallerLogging" {
+        BeforeEach {
+            $script:logRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("InstallerLogging.Tests." + [guid]::NewGuid().ToString("N"))
+        }
+
+        AfterEach {
+            Disable-InstallerLogging
+            Remove-Item -Path $script:logRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        It "creates a timestamped support log file in the requested folder" {
+            Initialize-InstallerLogging -LogFolder $script:logRoot -LogLevel 'Info' | Out-Null
+
+            $logFiles = Get-ChildItem -Path $script:logRoot -Filter 'BizTalkWinSCPInstaller-*.log'
+            $logFiles.Count | Should -Be 1
+            $logFiles[0].Name | Should -Match '^BizTalkWinSCPInstaller-\d{4}-\d{2}-\d{2}-\d{6}(?:-\d{2})?\.log$'
+            $content = Get-Content -Path $logFiles[0].FullName -Raw
+            $content | Should -Match 'BizTalk WinSCP Installer log'
+            $content | Should -Match 'Support log file:'
+        }
+
+        It "records snapshot details only when the log level includes verbose detail" {
+            Initialize-InstallerLogging -LogFolder $script:logRoot -LogLevel 'Info' | Out-Null
+            Write-InstallerStateSnapshot -Title 'Test snapshot' -State ([ordered]@{ key = 'value' })
+            $infoLog = Get-ChildItem -Path $script:logRoot -Filter '*.log' | Get-Content -Raw
+
+            Disable-InstallerLogging
+            Remove-Item -Path $script:logRoot -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -Path $script:logRoot -ItemType Directory -Force | Out-Null
+
+            Initialize-InstallerLogging -LogFolder $script:logRoot -LogLevel 'Verbose' | Out-Null
+            Write-InstallerStateSnapshot -Title 'Test snapshot' -State ([ordered]@{ key = 'value' })
+            $verboseLog = Get-ChildItem -Path $script:logRoot -Filter '*.log' | Get-Content -Raw
+
+            $infoLog    | Should -Not -Match '\[VERBOSE\]'
+            $verboseLog | Should -Match '\[VERBOSE\] Test snapshot'
+        }
+
+        It "writes event records when event log sink is enabled" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils Test-InstallerEventSourceExists { $true }
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils Write-InstallerEventLogRecord {}
+
+            Initialize-InstallerLogging -LogFolder $script:logRoot -LogLevel 'Info' -EnableEventLog -EventLogName 'Application' -EventSource 'BizTalkWinSCPInstaller.Tests' | Out-Null
+            Write-InstallerLogEntry -Level 'Info' -Message 'Event sink test line'
+
+            Should -Invoke Write-InstallerEventLogRecord -ModuleName InstallWinSCPForBizTalk.Utils -Times 3 -ParameterFilter {
+                $EventLogName -eq 'Application' -and $EventSource -eq 'BizTalkWinSCPInstaller.Tests'
+            }
+        }
+
+        It "falls back to warning line in file log when event log write fails" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils Test-InstallerEventSourceExists { $true }
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils Write-InstallerEventLogRecord { throw 'Event sink unavailable' }
+
+            Initialize-InstallerLogging -LogFolder $script:logRoot -LogLevel 'Info' -EnableEventLog | Out-Null
+            Write-InstallerLogEntry -Level 'Info' -Message 'Event sink fallback test'
+
+            $logFile = Get-ChildItem -Path $script:logRoot -Filter 'BizTalkWinSCPInstaller-*.log' | Select-Object -First 1
+            $content = Get-Content -Path $logFile.FullName -Raw
+            $content | Should -Match '\[WARN\] Event log write failed:'
+        }
+
+        It "creates a numbered log file name when a timestamp collision occurs" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils Get-Date { [datetime]'2026-04-25T23:30:00' }
+
+            $existingLog = Join-Path $script:logRoot 'BizTalkWinSCPInstaller-2026-04-25-233000.log'
+            New-Item -Path $script:logRoot -ItemType Directory -Force | Out-Null
+            Set-Content -Path $existingLog -Value 'existing log' -Encoding UTF8
+
+            $session = Initialize-InstallerLogging -LogFolder $script:logRoot -LogLevel 'Info'
+            Split-Path -Leaf $session.LogFile | Should -Be 'BizTalkWinSCPInstaller-2026-04-25-233000-02.log'
+        }
+    }
+
+    Context "Level mapping helpers" {
+        It "maps installer levels to numeric ranks" {
+            (Get-InstallerLogLevelRank -Level 'Error')   | Should -Be 0
+            (Get-InstallerLogLevelRank -Level 'Info')    | Should -Be 1
+            (Get-InstallerLogLevelRank -Level 'Verbose') | Should -Be 2
+            (Get-InstallerLogLevelRank -Level 'Debug')   | Should -Be 3
+        }
+
+        It "maps event log entry types with error as Error and others as Information" {
+            (Convert-InstallerEventEntryType -Level 'Error')   | Should -Be 'Error'
+            (Convert-InstallerEventEntryType -Level 'Info')    | Should -Be 'Information'
+            (Convert-InstallerEventEntryType -Level 'Verbose') | Should -Be 'Information'
+            (Convert-InstallerEventEntryType -Level 'Debug')   | Should -Be 'Information'
+        }
+    }
+
+    Context "Event log wrappers" {
+        It "forwards event-source registration to New-EventLog" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils New-EventLog {}
+
+            New-InstallerEventSource -EventLogName 'Application' -EventSource 'BizTalkWinSCPInstaller.Tests'
+
+            Should -Invoke New-EventLog -ModuleName InstallWinSCPForBizTalk.Utils -Times 1 -ParameterFilter {
+                $LogName -eq 'Application' -and $Source -eq 'BizTalkWinSCPInstaller.Tests'
+            }
+        }
+
+        It "forwards event entry writes to Write-EventLog" {
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils Write-EventLog {}
+
+            Write-InstallerEventLogRecord -EventLogName 'Application' -EventSource 'BizTalkWinSCPInstaller.Tests' -EntryType 'Information' -Message 'hello'
+
+            Should -Invoke Write-EventLog -ModuleName InstallWinSCPForBizTalk.Utils -Times 1 -ParameterFilter {
+                $LogName -eq 'Application' -and
+                $Source -eq 'BizTalkWinSCPInstaller.Tests' -and
+                $EntryType -eq 'Information' -and
+                $EventId -eq 1000 -and
+                $Category -eq 0 -and
+                $Message -eq 'hello'
+            }
+        }
+
+        It "creates event source when missing before writing event record" {
+            $script:eventSourceCheckCount = 0
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils Test-InstallerEventSourceExists {
+                $script:eventSourceCheckCount++
+                return $script:eventSourceCheckCount -gt 1
+            }
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils New-InstallerEventSource {}
+            Mock -ModuleName InstallWinSCPForBizTalk.Utils Write-InstallerEventLogRecord {}
+
+            $eventRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('InstallerLogging.EventSource.' + [guid]::NewGuid().ToString('N'))
+            try {
+                Initialize-InstallerLogging -LogFolder $eventRoot -EnableEventLog -EventSource 'BizTalkWinSCPInstaller.Tests' | Out-Null
+                Write-InstallerEventLogEntry -Level 'Info' -Message 'event write test'
+            }
+            finally {
+                Disable-InstallerLogging
+                Remove-Item -Path $eventRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+
+            Should -Invoke New-InstallerEventSource -ModuleName InstallWinSCPForBizTalk.Utils -Times 1
+            Should -Invoke Write-InstallerEventLogRecord -ModuleName InstallWinSCPForBizTalk.Utils -Times 3
+        }
     }
 
     Context "Get-InstallerBannerLine" {

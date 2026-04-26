@@ -1,6 +1,230 @@
 # InstallWinSCPForBizTalk.Utils.psm1
 # Shared output, snapshot, and semantic messaging helpers.
 
+# ---------------------------------------------------------------------------
+# Logging subsystem — module-scope state
+# ---------------------------------------------------------------------------
+$script:InstallerLogState = @{
+    Enabled         = $false
+    LogFile         = $null
+    LogLevel        = 'Info'
+    EventLogEnabled = $false
+    EventLogName    = 'Application'
+    EventSource     = 'BizTalkWinSCPInstaller'
+}
+
+# Returns the numeric rank of a log level for threshold comparison.
+function Get-InstallerLogLevelRank {
+    [OutputType([int])]
+    Param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Error', 'Info', 'Verbose', 'Debug')]
+        [string]$Level
+    )
+    switch ($Level) {
+        'Error'   { return 0 }
+        'Info'    { return 1 }
+        'Verbose' { return 2 }
+        'Debug'   { return 3 }
+        default   { throw "Unsupported log level: $Level" }
+    }
+}
+
+# Returns $true when the given level is at or below the active log threshold.
+function Test-InstallerLogLevelEnabled {
+    [OutputType([bool])]
+    Param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Error', 'Info', 'Verbose', 'Debug')]
+        [string]$Level
+    )
+    if (-not $script:InstallerLogState.Enabled) { return $false }
+    return (Get-InstallerLogLevelRank -Level $Level) -le (Get-InstallerLogLevelRank -Level $script:InstallerLogState.LogLevel)
+}
+
+# Maps installer log levels to Windows Event Log entry types.
+function Convert-InstallerEventEntryType {
+    [OutputType([string])]
+    Param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Error', 'Info', 'Verbose', 'Debug')]
+        [string]$Level
+    )
+
+    if ($Level -eq 'Error') { return 'Error' }
+    return 'Information'
+}
+
+# Returns whether the configured event source already exists.
+function Test-InstallerEventSourceExists {
+    [OutputType([bool])]
+    Param(
+        [Parameter(Mandatory = $true)]
+        [string]$EventSource
+    )
+
+    return [System.Diagnostics.EventLog]::SourceExists($EventSource)
+}
+
+# Registers a Windows Event Log source when missing.
+function New-InstallerEventSource {
+    Param(
+        [Parameter(Mandatory = $true)]
+        [string]$EventLogName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$EventSource
+    )
+
+    New-EventLog -LogName $EventLogName -Source $EventSource
+}
+
+# Writes a single Windows Event Log entry for installer output.
+function Write-InstallerEventLogRecord {
+    Param(
+        [Parameter(Mandatory = $true)]
+        [string]$EventLogName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$EventSource,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Error', 'Information')]
+        [string]$EntryType,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    Write-EventLog -LogName $EventLogName -Source $EventSource -EntryType $EntryType -EventId 1000 -Category 0 -Message $Message
+}
+
+# Writes an entry to Windows Event Log when event logging is enabled.
+function Write-InstallerEventLogEntry {
+    Param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Error', 'Info', 'Verbose', 'Debug')]
+        [string]$Level,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    if (-not $script:InstallerLogState.EventLogEnabled) { return }
+
+    try {
+        if (-not (Test-InstallerEventSourceExists -EventSource $script:InstallerLogState.EventSource)) {
+            New-InstallerEventSource -EventLogName $script:InstallerLogState.EventLogName -EventSource $script:InstallerLogState.EventSource
+        }
+
+        $entryType = Convert-InstallerEventEntryType -Level $Level
+        Write-InstallerEventLogRecord -EventLogName $script:InstallerLogState.EventLogName -EventSource $script:InstallerLogState.EventSource -EntryType $entryType -Message $Message
+    }
+    catch {
+        if (-not [string]::IsNullOrWhiteSpace($script:InstallerLogState.LogFile)) {
+            $timestamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+            $warning = "[$timestamp] [WARN] Event log write failed: $($_.Exception.Message)"
+            Add-Content -Path $script:InstallerLogState.LogFile -Value $warning -Encoding UTF8
+        }
+    }
+}
+
+# Appends a single timestamped entry to the active log file when level qualifies.
+function Write-InstallerLogEntry {
+    Param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Error', 'Info', 'Verbose', 'Debug')]
+        [string]$Level,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+    if (-not (Test-InstallerLogLevelEnabled -Level $Level)) { return }
+    $timestamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+    $line = "[$timestamp] [$($Level.ToUpper())] $Message"
+    Add-Content -Path $script:InstallerLogState.LogFile -Value $line -Encoding UTF8
+    Write-InstallerEventLogEntry -Level $Level -Message $Message
+}
+
+# Creates a timestamped log file and activates the logging sink for this session.
+function Initialize-InstallerLogging {
+    [OutputType([hashtable])]
+    Param(
+        [Parameter(Mandatory = $true)]
+        [string]$LogFolder,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('Info', 'Verbose', 'Debug')]
+        [string]$LogLevel = 'Info',
+
+        [Parameter(Mandatory = $false)]
+        [switch]$EnableEventLog,
+
+        [Parameter(Mandatory = $false)]
+        [string]$EventLogName = 'Application',
+
+        [Parameter(Mandatory = $false)]
+        [string]$EventSource = 'BizTalkWinSCPInstaller'
+    )
+
+    if (-not (Test-Path $LogFolder)) {
+        New-Item -Path $LogFolder -ItemType Directory -Force | Out-Null
+    }
+
+    $timestamp = (Get-Date).ToString('yyyy-MM-dd-HHmmss')
+    $baseName = "BizTalkWinSCPInstaller-$timestamp"
+    $logFile = Join-Path $LogFolder "$baseName.log"
+    $suffix = 1
+    while (Test-Path $logFile) {
+        $suffix++
+        $logFile = Join-Path $LogFolder ('{0}-{1:D2}.log' -f $baseName, $suffix)
+    }
+
+    $script:InstallerLogState.Enabled         = $true
+    $script:InstallerLogState.LogFile         = $logFile
+    $script:InstallerLogState.LogLevel        = $LogLevel
+    $script:InstallerLogState.EventLogEnabled = [bool]$EnableEventLog
+    $script:InstallerLogState.EventLogName    = $EventLogName
+    $script:InstallerLogState.EventSource     = $EventSource
+
+    @(
+        '================================================================================'
+        ' BizTalk WinSCP Installer log'
+        ('  Machine   : ' + $env:COMPUTERNAME)
+        ('  User      : ' + $env:USERNAME)
+        ('  PSVersion : ' + $PSVersionTable.PSVersion)
+        ('  LogLevel  : ' + $LogLevel)
+        ('  LogFolder : ' + $LogFolder)
+        '================================================================================'
+    ) | Set-Content -Path $logFile -Encoding UTF8
+
+    Write-InstallerLogEntry -Level 'Info' -Message ("Support log file: $logFile")
+    if ($EnableEventLog) {
+        Write-InstallerLogEntry -Level 'Info' -Message ("Windows Event Log sink enabled: LogName='{0}', Source='{1}'" -f $EventLogName, $EventSource)
+    }
+
+    return @{
+        LogFile         = $logFile
+        LogLevel        = $LogLevel
+        EventLogEnabled = [bool]$EnableEventLog
+        EventLogName    = $EventLogName
+        EventSource     = $EventSource
+    }
+}
+
+# Deactivates the logging sink and releases the log file reference.
+function Disable-InstallerLogging {
+    $script:InstallerLogState.Enabled         = $false
+    $script:InstallerLogState.LogFile         = $null
+    $script:InstallerLogState.EventLogEnabled = $false
+    $script:InstallerLogState.EventLogName    = 'Application'
+    $script:InstallerLogState.EventSource     = 'BizTalkWinSCPInstaller'
+}
+
+# ---------------------------------------------------------------------------
+# Console output helpers
+# ---------------------------------------------------------------------------
+
 # Write an installer error line.
 function Write-InstallerError {
     <#
@@ -11,6 +235,7 @@ function Write-InstallerError {
     Error message text to display.
     #>
     Param([string] $ErrorMessage)
+    Write-InstallerLogEntry -Level 'Info' -Message $ErrorMessage
     Write-Host -ForegroundColor Red "$ErrorMessage";
 }
 
@@ -24,6 +249,7 @@ function Write-InstallerSuccess {
     Success/info message text to display.
     #>
     Param([string] $SuccessMessage)
+    Write-InstallerLogEntry -Level 'Info' -Message $SuccessMessage
     Write-Host -ForegroundColor Green "$SuccessMessage";
 }
 
@@ -202,26 +428,6 @@ function Write-InstallerFinalOutcome {
     }
 }
 
-# Debug utility class for compact state snapshot logging.
-class InstallerDebugUtility {
-    static [void] WriteState([string]$Title, [System.Collections.IDictionary]$State) {
-        if ($null -eq $State) {
-            return
-        }
-
-        if (-not [string]::IsNullOrWhiteSpace($Title)) {
-            Write-Verbose $Title
-            Write-Debug $Title
-        }
-
-        foreach ($entry in $State.GetEnumerator()) {
-            $line = ('${0} = {1}' -f $entry.Key, $entry.Value)
-            Write-Verbose $line
-            Write-Debug $line
-        }
-    }
-}
-
 # Wrapper for debug state snapshots emitted by installer phases.
 function Write-InstallerStateSnapshot {
     <#
@@ -243,7 +449,20 @@ function Write-InstallerStateSnapshot {
         [System.Collections.IDictionary]$State
     )
 
-    [InstallerDebugUtility]::WriteState($Title, $State)
+    if ($null -eq $State) { return }
+
+    if (-not [string]::IsNullOrWhiteSpace($Title)) {
+        Write-Verbose $Title
+        Write-Debug $Title
+        Write-InstallerLogEntry -Level 'Verbose' -Message $Title
+    }
+
+    foreach ($entry in $State.GetEnumerator()) {
+        $line = ('${0} = {1}' -f $entry.Key, $entry.Value)
+        Write-Verbose $line
+        Write-Debug $line
+        Write-InstallerLogEntry -Level 'Verbose' -Message $line
+    }
 }
 
 # Emit discovery snapshot for BizTalk install path and product metadata.
