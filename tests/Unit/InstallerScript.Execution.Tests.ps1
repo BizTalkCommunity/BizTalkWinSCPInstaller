@@ -278,4 +278,41 @@ Describe "InstallWinSCPForBizTalk script execution" {
         $logFiles.Count | Should -Be 1
         (Get-Content -Path $logFiles[0].FullName -Raw) | Should -Match 'LogLevel\s+:\s+Debug'
     }
+
+    It "uses TEMP\\nuget default when nugetDownloadFolder is omitted" {
+        $previousTemp = $env:TEMP
+        try {
+            $env:TEMP = $script:testRoot
+            $defaultNugetFolder = Join-Path $script:testRoot 'nuget'
+            $packageRoot = Join-Path $defaultNugetFolder 'WinSCP.5.15.4'
+            $toolsPath = Join-Path $packageRoot 'tools'
+            $dllPath = Join-Path $packageRoot 'lib/netstandard2.0'
+
+            New-Item -Path $toolsPath -ItemType Directory -Force | Out-Null
+            New-Item -Path $dllPath -ItemType Directory -Force | Out-Null
+            Set-Content -Path (Join-Path $toolsPath 'WinSCP.exe') -Value 'fake exe' -Encoding ASCII
+            Set-Content -Path (Join-Path $dllPath 'WinSCPnet.dll') -Value 'fake dll' -Encoding ASCII
+            Set-Content -Path (Join-Path $defaultNugetFolder 'nuget.exe') -Value 'fake nuget' -Encoding ASCII
+
+            Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
+
+            & $script:installerPath -LogFolder $script:logFolder -WhatIf -Confirm:$false
+
+            $logFile = Get-ChildItem -Path $script:logFolder -Filter 'BizTalkWinSCPInstaller-*.log' | Select-Object -First 1
+            $content = Get-Content -Path $logFile.FullName -Raw
+            $content | Should -Match "Parameters: NuGetDownloadFolder='.*\\nuget'"
+        }
+        finally {
+            $env:TEMP = $previousTemp
+        }
+    }
+
+    It "throws when the core module is missing from script root" {
+        $isolatedRoot = Join-Path $script:testRoot 'isolated-script-root'
+        New-Item -Path $isolatedRoot -ItemType Directory -Force | Out-Null
+        $isolatedScript = Join-Path $isolatedRoot 'InstallWinSCPForBizTalk.ps1'
+        Copy-Item -Path $script:installerPath -Destination $isolatedScript -Force
+
+        { & $isolatedScript -WhatIf -Confirm:$false } | Should -Throw -ExpectedMessage 'Required core module was not found*'
+    }
 }
