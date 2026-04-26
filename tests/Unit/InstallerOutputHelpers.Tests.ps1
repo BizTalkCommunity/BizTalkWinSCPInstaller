@@ -96,14 +96,14 @@ Describe "Installer output helpers" {
             }
         }
 
-        It "writes success outcome with bang header and up footer" {
+        It "writes success outcome with paired bang delimiters" {
             Write-InstallerFinalOutcome -Outcome 'Success' -WinSCPVersion '5.15.4'
 
             $script:errorMessages.Count | Should -Be 0
             $script:successMessages.Count | Should -Be 4
             $script:successMessages[0] | Should -Be "`n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             $script:successMessages[1] | Should -Be 'WinSCP 5.15.4 is installed.'
-            $script:successMessages[3] | Should -Be '^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^'
+            $script:successMessages[3] | Should -Be '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
         }
 
         It "writes dry-run outcome as success delimited message" {
@@ -228,8 +228,8 @@ Describe "Installer output helpers" {
 
             Write-WinSCPNotInstalledNotice -WinSCPVersion '5.15.4'
 
-            Should -Invoke Write-InstallerSuccess -ModuleName InstallWinSCPForBizTalk.Utils -Times 3
-            Should -Invoke Write-InstallerSuccess -ModuleName InstallWinSCPForBizTalk.Utils -Times 1 -ParameterFilter {
+            Should -Invoke Write-InstallerSuccess -ModuleName InstallWinSCPForBizTalk.Utils -Times 4
+            Should -Invoke Write-InstallerSuccess -ModuleName InstallWinSCPForBizTalk.Utils -Times 2 -ParameterFilter {
                 $SuccessMessage -eq '!!!'
             }
             Should -Invoke Write-InstallerSuccess -ModuleName InstallWinSCPForBizTalk.Utils -Times 1 -ParameterFilter {

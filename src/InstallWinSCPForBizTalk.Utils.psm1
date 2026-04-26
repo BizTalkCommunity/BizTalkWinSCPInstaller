@@ -170,14 +170,13 @@ function Write-InstallerFinalOutcome {
     )
 
     $bangString = Get-InstallerBannerLine -Name 'Bang'
-    $upString = Get-InstallerBannerLine -Name 'Up'
 
     switch ($Outcome) {
         'Success' {
             Write-InstallerSuccess "`n$bangString"
             Write-InstallerSuccess "WinSCP $WinSCPVersion is installed."
             Write-InstallerSuccess "Microsoft BizTalk Server`'s SFTP Adapter will use this version of WinSCP."
-            Write-InstallerSuccess $upString
+            Write-InstallerSuccess $bangString
         }
         'DryRun' {
             Write-InstallerDelimitedMessage -MessageLines @(
@@ -609,4 +608,5 @@ function Write-WinSCPNotInstalledNotice {
     Write-InstallerSuccess $bangString
     Write-InstallerSuccess "WinSCP $WinSCPVersion is NOT installed in the"
     Write-InstallerSuccess 'Microsoft BizTalk Server folder and needs to be installed.'
+    Write-InstallerSuccess $bangString
 }
