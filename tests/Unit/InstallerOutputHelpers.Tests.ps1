@@ -18,7 +18,47 @@ Describe "Installer output helpers" {
     }
 
     AfterAll {
+        Disable-InstallerLogging
         Remove-Module InstallWinSCPForBizTalk.Utils -ErrorAction SilentlyContinue
+    }
+
+    Context "Initialize-InstallerLogging" {
+        BeforeEach {
+            $script:logRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("InstallerLogging.Tests." + [guid]::NewGuid().ToString("N"))
+        }
+
+        AfterEach {
+            Disable-InstallerLogging
+            Remove-Item -Path $script:logRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        It "creates a timestamped support log file in the requested folder" {
+            Initialize-InstallerLogging -LogFolder $script:logRoot -LogLevel 'Info' | Out-Null
+
+            $logFiles = Get-ChildItem -Path $script:logRoot -Filter 'BizTalkWinSCPInstaller-*.log'
+            $logFiles.Count | Should -Be 1
+            $logFiles[0].Name | Should -Match '^BizTalkWinSCPInstaller-\d{4}-\d{2}-\d{2}-\d{6}(?:-\d{2})?\.log$'
+            $content = Get-Content -Path $logFiles[0].FullName -Raw
+            $content | Should -Match 'BizTalk WinSCP Installer log'
+            $content | Should -Match 'Support log file:'
+        }
+
+        It "records snapshot details only when the log level includes verbose detail" {
+            Initialize-InstallerLogging -LogFolder $script:logRoot -LogLevel 'Info' | Out-Null
+            Write-InstallerStateSnapshot -Title 'Test snapshot' -State ([ordered]@{ key = 'value' })
+            $infoLog = Get-ChildItem -Path $script:logRoot -Filter '*.log' | Get-Content -Raw
+
+            Disable-InstallerLogging
+            Remove-Item -Path $script:logRoot -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -Path $script:logRoot -ItemType Directory -Force | Out-Null
+
+            Initialize-InstallerLogging -LogFolder $script:logRoot -LogLevel 'Verbose' | Out-Null
+            Write-InstallerStateSnapshot -Title 'Test snapshot' -State ([ordered]@{ key = 'value' })
+            $verboseLog = Get-ChildItem -Path $script:logRoot -Filter '*.log' | Get-Content -Raw
+
+            $infoLog    | Should -Not -Match '\[VERBOSE\]'
+            $verboseLog | Should -Match '\[VERBOSE\] Test snapshot'
+        }
     }
 
     Context "Get-InstallerBannerLine" {
