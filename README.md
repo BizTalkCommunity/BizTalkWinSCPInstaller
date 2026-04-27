@@ -1,154 +1,136 @@
 # BizTalk WinSCP Installer
 
-This repository provides a PowerShell script that installs the correct WinSCP version for Microsoft BizTalk Server.
+This repository provides automation to install the correct WinSCP version for
+Microsoft BizTalk Server 2016 or 2020, and to build minimal production-ready
+bundles with a reduced attack surface.
 
-The script:
-- Detects BizTalk Server version (2016 or 2020).
-- Detects installed cumulative update (CU), feature pack (FP), or feature update (FU).
-- Maps that result to the required WinSCP version.
-- Downloads WinSCP from NuGet when needed.
-- Copies `WinSCP.exe` and `WinSCPnet.dll` to the BizTalk installation folder.
+## Documentation Map
 
-## Script
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Production readiness release summary: [docs/production-readiness-release.md](docs/production-readiness-release.md)
+- Maintainer history and evolution summary: [docs/maintainer-history.md](docs/maintainer-history.md)
+- Main script walkthrough: [docs/main-script-walkthrough.md](docs/main-script-walkthrough.md)
+- CU mapping maintenance: [docs/cu-mapping-maintenance.md](docs/cu-mapping-maintenance.md)
 
-- `InstallWinSCPForBizTalk.ps1`
+## Quick Start Decision Table
 
-## Requirements
+| Situation | Recommended Path | Command(s) |
+|---|---|---|
+| You can run scripts on the BizTalk server before packaging | Probe-first (highest success) | `./scripts/New-BizTalkProbeReport.ps1` then `./scripts/Build-ProductionPackage.ps1 -ProbeReportPath ... -FetchNuGetPayload -Clean` |
+| You cannot run probe but you know exact WinSCP version | Manual fallback | `./scripts/Build-ProductionPackage.ps1 -TargetWinSCPVersion <version> -FetchNuGetPayload -Clean` |
+| You already have a curated offline NuGet payload folder | Pre-staged payload | `./scripts/Build-ProductionPackage.ps1 -NuGetPayloadFolder <folder> -Clean` |
+| You just want direct install on a BizTalk server | Direct installer | `./InstallWinSCPForBizTalk.ps1` |
 
-- Windows with PowerShell.
-- Microsoft BizTalk Server 2016 or 2020 installed.
-- Write access to the BizTalk installation folder.
-- Internet access for online installs, unless using offline mode.
-- For actual installation, run from an elevated PowerShell session.
+## Probe-First Recommended Workflow
 
-## Parameters
+This path has the highest probability of success and does not require BizTalk on
+the machine that builds the production package.
 
-- `-nugetDownloadFolder <path>`
-  - Folder used for `nuget.exe` and WinSCP package files.
-  - Default: `$env:TEMP\nuget`
-  - Folder is not deleted automatically.
-
-- `-ForceInstall`
-  - Reinstalls WinSCP even if the required version is already present.
-
-The script also supports PowerShell risk-mitigation parameters:
-- `-WhatIf`
-- `-Confirm`
-
-## Usage
-
-### Default installation
-
-```powershell
-.\InstallWinSCPForBizTalk.ps1
-```
-
-### Use a custom download folder
-
-```powershell
-.\InstallWinSCPForBizTalk.ps1 -nugetDownloadFolder C:\Temp\WinSCP
-```
-
-### Force reinstall
-
-```powershell
-.\InstallWinSCPForBizTalk.ps1 -ForceInstall
-```
-
-### Dry run
-
-```powershell
-.\InstallWinSCPForBizTalk.ps1 -WhatIf
-```
-
-### Show verbose diagnostics
-
-```powershell
-.\InstallWinSCPForBizTalk.ps1 -Verbose
-```
-
-## Offline Workflow (Production-Friendly)
-
-If production servers do not have internet access:
-
-1. Run the script in a connected environment with the same BizTalk/CU level.
-2. Use a known folder via `-nugetDownloadFolder`.
-3. Copy that folder to the offline target server.
-4. Run the script on the target server using the same `-nugetDownloadFolder` path.
-
-If required package files already exist, the script reuses them instead of downloading again.
-
-## Build Minimal Production Bundle
-
-To reduce production attack surface, you can build a minimal deployment bundle that
-contains only runtime installer essentials (no tests/docs/dev helpers).
-
-This build step does **not** require BizTalk to be installed on the machine that
-creates the production bundle.
-
-### Build minimal bundle
-
-```powershell
-.\scripts\Build-ProductionPackage.ps1 -Clean
-```
-
-Default output:
-
-- `dist\BizTalkWinSCPInstaller-Production`
-
-### Recommended: probe-first workflow (highest success)
-
-When the build machine does not have BizTalk installed, run this on the target
-BizTalk machine first:
+1. On the BizTalk server, generate a probe report:
 
 ```powershell
 .\scripts\New-BizTalkProbeReport.ps1 -OutputPath C:\Temp\biztalk-probe.json
 ```
 
-Then copy `biztalk-probe.json` back to the build machine and build the bundle:
+2. Copy `biztalk-probe.json` to the build machine.
 
-```powershell
-.\scripts\Build-ProductionPackage.ps1 -Clean -ProbeReportPath C:\Temp\biztalk-probe.json
-```
-
-To also pre-download the exact WinSCP payload for offline production use:
+3. Build minimal package and fetch exact payload:
 
 ```powershell
 .\scripts\Build-ProductionPackage.ps1 -Clean -ProbeReportPath C:\Temp\biztalk-probe.json -FetchNuGetPayload
 ```
 
-This provides a high-confidence package with minimal manual input.
+4. Copy output bundle (default `dist\BizTalkWinSCPInstaller-Production`) to target production server.
 
-### Manual workflow (fallback)
-
-If a probe report is not available, you can specify the WinSCP version directly:
-
-```powershell
-.\scripts\Build-ProductionPackage.ps1 -Clean -TargetWinSCPVersion 6.3.5 -FetchNuGetPayload
-```
-
-Use this mode only when you are sure of the target BizTalk/CU mapping.
-
-### Build minimal bundle with offline payload
-
-```powershell
-.\scripts\Build-ProductionPackage.ps1 -Clean -NuGetPayloadFolder C:\Temp\winscp-cache
-```
-
-When `-NuGetPayloadFolder` is supplied, the payload is copied into `./nuget` in the
-bundle and `Run-Installer.ps1` defaults to using that local folder.
-
-### Run in production
-
-Copy the generated bundle to the target server and run:
+5. Run installer wrapper from the bundle:
 
 ```powershell
 .\Run-Installer.ps1
 ```
 
-## Compatibility Matrix
+Notes:
+- The probe report is copied into the bundle for traceability.
+- The bundle manifest records selected WinSCP version and file hashes.
 
-The script includes explicit mapping for these versions.
+## Manual Fallback Workflow
+
+Use this path only when probe data is unavailable.
+
+1. Choose WinSCP version manually from the compatibility matrix below.
+
+2. Build package with explicit version:
+
+```powershell
+.\scripts\Build-ProductionPackage.ps1 -Clean -TargetWinSCPVersion 6.3.5 -FetchNuGetPayload
+```
+
+3. Transfer bundle and run:
+
+```powershell
+.\Run-Installer.ps1
+```
+
+Alternative: if you already maintain a payload cache, use:
+
+```powershell
+.\scripts\Build-ProductionPackage.ps1 -Clean -NuGetPayloadFolder C:\Temp\winscp-cache
+```
+
+## Full Parameter Reference (Installer + Builder + Probe)
+
+### InstallWinSCPForBizTalk.ps1
+
+Purpose: install the correct WinSCP binaries into BizTalk install folder.
+
+Parameters:
+- `-nugetDownloadFolder <path>`
+- `-ForceInstall`
+- `-LogFolder <path>`
+- `-LogLevel <Info|Verbose|Debug>`
+- `-EnableEventLog`
+- `-EventLogName <name>`
+- `-EventSource <name>`
+- PowerShell common risk controls: `-WhatIf`, `-Confirm`
+
+Examples:
+
+```powershell
+.\InstallWinSCPForBizTalk.ps1
+.\InstallWinSCPForBizTalk.ps1 -nugetDownloadFolder C:\Temp\WinSCP
+.\InstallWinSCPForBizTalk.ps1 -ForceInstall -Verbose
+.\InstallWinSCPForBizTalk.ps1 -WhatIf
+```
+
+### scripts/Build-ProductionPackage.ps1
+
+Purpose: create a minimal production bundle with runtime essentials only.
+
+Parameters:
+- `-OutputFolder <path>`
+- `-NuGetPayloadFolder <path>`
+- `-ProbeReportPath <path>`
+- `-TargetWinSCPVersion <version>`
+- `-FetchNuGetPayload`
+- `-Clean`
+
+Rules:
+- Use either `-NuGetPayloadFolder` or `-FetchNuGetPayload`, not both.
+- `-FetchNuGetPayload` requires either `-ProbeReportPath` or `-TargetWinSCPVersion`.
+
+### scripts/New-BizTalkProbeReport.ps1
+
+Purpose: run on BizTalk machine to produce a JSON report for external packaging.
+
+Parameters:
+- `-OutputPath <path>`
+
+Example:
+
+```powershell
+.\scripts\New-BizTalkProbeReport.ps1 -OutputPath C:\Temp\biztalk-probe.json
+```
+
+## Compatibility Matrix
 
 ### BizTalk Server 2020
 
@@ -186,29 +168,58 @@ The script includes explicit mapping for these versions.
 | CU1 | 3208238 | 5.7.7 |
 | RTM / no CU detected | n/a | 5.7.7 |
 
-## Notes
+## Troubleshooting / Verification
 
-- If the required WinSCP version is already installed, the script makes no changes (unless `-ForceInstall` is used).
-- The script validates package layout dynamically for different NuGet package structures.
-- If BizTalk cannot be detected, the script exits with error details.
+### Quick verification checklist
 
-## Documentation Generation
+1. Run a dry run:
 
-The modules in `src/` now include PowerShell comment-based help and module manifests.
+```powershell
+.\InstallWinSCPForBizTalk.ps1 -WhatIf
+```
 
-Additional design and flow documentation:
+2. Validate local test and complexity gates:
 
-- Main script walkthrough and variable inventory: [docs/main-script-walkthrough.md](docs/main-script-walkthrough.md)
-- CU mapping maintenance guide: [docs/cu-mapping-maintenance.md](docs/cu-mapping-maintenance.md)
+```powershell
+.\scripts\Run-Validation.ps1
+```
 
-To generate markdown help from function help comments:
+3. If packaging for production, verify bundle contents include:
+- `InstallWinSCPForBizTalk.ps1`
+- `src/InstallWinSCPForBizTalk.Core.psm1`
+- `src/InstallWinSCPForBizTalk.Utils.psm1`
+- `src/InstallWinSCPForBizTalk.Workflow.psm1`
+- `Run-Installer.ps1`
+- `package-manifest.json`
+
+### Common issues
+
+- BizTalk not detected:
+  - Ensure BizTalk registry keys are present on target server.
+  - Ensure script is run on a BizTalk 2016/2020 host.
+
+- Non-admin write failures:
+  - Run elevated on target server for actual installation.
+
+- Offline payload issues:
+  - Ensure `nuget.exe` and expected `WinSCP.<version>` package folder are present under bundle `nuget`.
+
+## Advanced Docs / Tools
+
+Additional documentation:
+- Production readiness release summary: [docs/production-readiness-release.md](docs/production-readiness-release.md)
+- Main script walkthrough: [docs/main-script-walkthrough.md](docs/main-script-walkthrough.md)
+- CU mapping maintenance: [docs/cu-mapping-maintenance.md](docs/cu-mapping-maintenance.md)
+- Maintainer history and evolution summary: [docs/maintainer-history.md](docs/maintainer-history.md)
+
+Generate markdown help from comment-based PowerShell help:
 
 ```powershell
 Install-Module platyPS -Scope CurrentUser
 .\scripts\Generate-ModuleHelp.ps1
 ```
 
-Generated help files are written to `docs/help` by default.
+Generated help output defaults to `docs/help`.
 
 ## Credits
 

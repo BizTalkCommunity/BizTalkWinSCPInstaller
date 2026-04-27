@@ -1,6 +1,6 @@
 @{
     RootModule = 'InstallWinSCPForBizTalk.Utils.psm1'
-    ModuleVersion = '1.0.0'
+    ModuleVersion = '2.0.0'
     GUID = 'fc3948e4-72ec-4e34-8b9d-7f4f2d79a1af'
     Author = 'BizTalk Community'
     CompanyName = 'BizTalk Community'
