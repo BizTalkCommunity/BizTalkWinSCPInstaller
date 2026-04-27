@@ -1,0 +1,34 @@
+# PowerShell
+*.log
+*.old
+
+# Visual Studio
+.vs/
+*.sln.iml
+.vscode/settings.json
+
+# Pester
+TestResults.xml
+
+# Temp/working
+temp/
+tmp/
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# NuGet
+packages/
+*.nupkg
+
+# Local validation artifacts
+coverage.xml
+validation.out.txt
+validation-*.out.txt
+
+# Local diagnostics folders
+artifacts/
+logs/
+dist/
