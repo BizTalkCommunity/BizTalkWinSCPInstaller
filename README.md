@@ -178,10 +178,16 @@ Example:
 .\InstallWinSCPForBizTalk.ps1 -WhatIf
 ```
 
-2. Validate local test and complexity gates:
+2. Validate local quality gates (coverage, complexity, and ScriptAnalyzer unused-variable checks):
 
 ```powershell
 .\scripts\Run-Validation.ps1
+```
+
+If you need to skip ScriptAnalyzer locally:
+
+```powershell
+.\scripts\Run-Validation.ps1 -SkipScriptAnalyzer
 ```
 
 3. If packaging for production, verify bundle contents include:

@@ -5,6 +5,7 @@ Runs local validation checks for this repository.
 .DESCRIPTION
 Runs unit tests with code coverage and/or cyclomatic complexity checks.
 Designed for repeatable local use before commits and pull requests.
+Also runs ScriptAnalyzer for unused-variable checks by default.
 
 .EXAMPLE
 ./scripts/Run-Validation.ps1
@@ -17,11 +18,16 @@ Runs only unit tests with coverage.
 .EXAMPLE
 ./scripts/Run-Validation.ps1 -ComplexityOnly
 Runs only complexity checks.
+
+.EXAMPLE
+./scripts/Run-Validation.ps1 -SkipScriptAnalyzer
+Runs coverage and complexity checks without ScriptAnalyzer.
 #>
 [CmdletBinding()]
 param(
     [switch]$CoverageOnly,
     [switch]$ComplexityOnly,
+    [switch]$SkipScriptAnalyzer,
     [switch]$ShowMissedCommands,
     [switch]$FailOnCoverageTarget,
     [int]$CoverageTarget = 75
@@ -36,6 +42,7 @@ if ($CoverageOnly -and $ComplexityOnly) {
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $runCoverage = -not $ComplexityOnly
 $runComplexity = -not $CoverageOnly
+$runScriptAnalyzer = -not $SkipScriptAnalyzer
 
 function Invoke-InCleanPwsh {
     param(
@@ -53,7 +60,39 @@ function Invoke-InCleanPwsh {
     }
 }
 
+function Install-ModuleIfMissing {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [Parameter(Mandatory = $false)]
+        [string]$MinimumVersion
+    )
+
+    if (Get-Module -ListAvailable -Name $Name) {
+        return
+    }
+
+    Write-Host "Installing missing PowerShell module '$Name'..." -ForegroundColor Yellow
+    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+
+    $installParams = @{
+        Name               = $Name
+        Scope              = 'CurrentUser'
+        Force              = $true
+        SkipPublisherCheck = $true
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($MinimumVersion)) {
+        $installParams.MinimumVersion = $MinimumVersion
+    }
+
+    Install-Module @installParams
+}
+
 if ($runCoverage) {
+    Install-ModuleIfMissing -Name 'Pester' -MinimumVersion '5.0.0'
+
     $coverageTemplate = @'
 Set-Location '__ROOT__'
 
@@ -98,6 +137,8 @@ if ($r.FailedCount -gt 0) { exit 1 }
 }
 
 if ($runComplexity) {
+    Install-ModuleIfMissing -Name 'Pester' -MinimumVersion '5.0.0'
+
     $complexityTemplate = @'
 Set-Location '__ROOT__'
 
@@ -114,6 +155,36 @@ if ($r.FailedCount -gt 0) { exit 1 }
     $complexityScript = $complexityTemplate.Replace('__ROOT__', $repoRoot.Replace("'", "''"))
 
     Invoke-InCleanPwsh -Script $complexityScript -Title 'Complexity Validation'
+}
+
+if ($runScriptAnalyzer) {
+    Install-ModuleIfMissing -Name 'PSScriptAnalyzer' -MinimumVersion '1.21.0'
+
+    $analyzerTemplate = @'
+Set-Location '__ROOT__'
+
+$paths = @('InstallWinSCPForBizTalk.ps1','src','scripts')
+    $results = @()
+    foreach ($path in $paths) {
+        $results += Invoke-ScriptAnalyzer -Path $path -Recurse -IncludeRule @('PSUseDeclaredVarsMoreThanAssignments') -Severity @('Warning','Error') -ErrorAction Stop
+    }
+
+if ($null -eq $results -or @($results).Count -eq 0) {
+    'ScriptAnalyzer: no unused-variable violations found.'
+    return
+}
+
+'ScriptAnalyzer violations:'
+$results |
+    Select-Object RuleName, Severity, ScriptName, Line, Message |
+    Sort-Object ScriptName, Line |
+    Format-Table -AutoSize
+
+exit 1
+'@
+
+    $analyzerScript = $analyzerTemplate.Replace('__ROOT__', $repoRoot.Replace("'", "''"))
+    Invoke-InCleanPwsh -Script $analyzerScript -Title 'ScriptAnalyzer Validation'
 }
 
 Write-Host "`nValidation complete." -ForegroundColor Green

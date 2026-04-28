@@ -9,8 +9,8 @@ on:
       - tomcanter/**
 
 jobs:
-  pester:
-    name: Run Pester tests
+  validation:
+    name: Run Validation Gates
     runs-on: windows-latest
 
     steps:
@@ -23,8 +23,13 @@ jobs:
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module Pester -Scope CurrentUser -MinimumVersion 5.0.0 -Force -SkipPublisherCheck
 
-      - name: Run unit tests
+      - name: Install PSScriptAnalyzer
         shell: pwsh
         run: |
-          Import-Module Pester -MinimumVersion 5.0 -Force
-          Invoke-Pester tests/Unit -Output Detailed -CI
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -Scope CurrentUser -MinimumVersion 1.21.0 -Force -SkipPublisherCheck
+
+      - name: Run validation script
+        shell: pwsh
+        run: |
+          ./scripts/Run-Validation.ps1 -FailOnCoverageTarget
