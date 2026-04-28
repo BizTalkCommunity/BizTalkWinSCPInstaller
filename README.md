@@ -187,6 +187,7 @@ Example:
 3. If packaging for production, verify bundle contents include:
 - `InstallWinSCPForBizTalk.ps1`
 - `src/InstallWinSCPForBizTalk.Core.psm1`
+- `src/InstallWinSCPForBizTalk.Init.psm1`
 - `src/InstallWinSCPForBizTalk.Utils.psm1`
 - `src/InstallWinSCPForBizTalk.Workflow.psm1`
 - `Run-Installer.ps1`

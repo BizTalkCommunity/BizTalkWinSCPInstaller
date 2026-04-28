@@ -134,6 +134,7 @@ function Fetch-NuGetPayload {
 $requiredRelativePaths = @(
     'InstallWinSCPForBizTalk.ps1',
     'src/InstallWinSCPForBizTalk.Core.psm1',
+    'src/InstallWinSCPForBizTalk.Init.psm1',
     'src/InstallWinSCPForBizTalk.Utils.psm1',
     'src/InstallWinSCPForBizTalk.Workflow.psm1'
 )
@@ -260,6 +261,7 @@ This package is intentionally minimal and contains only runtime essentials.
 
 - InstallWinSCPForBizTalk.ps1
 - src/InstallWinSCPForBizTalk.Core.psm1
+- src/InstallWinSCPForBizTalk.Init.psm1
 - src/InstallWinSCPForBizTalk.Utils.psm1
 - src/InstallWinSCPForBizTalk.Workflow.psm1
 - Run-Installer.ps1

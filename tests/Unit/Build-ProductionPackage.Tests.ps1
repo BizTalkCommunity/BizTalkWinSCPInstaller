@@ -29,6 +29,7 @@ Describe "Build-ProductionPackage script" {
 
         Test-Path (Join-Path $outputFolder 'InstallWinSCPForBizTalk.ps1') | Should -BeTrue
         Test-Path (Join-Path $outputFolder 'src/InstallWinSCPForBizTalk.Core.psm1') | Should -BeTrue
+        Test-Path (Join-Path $outputFolder 'src/InstallWinSCPForBizTalk.Init.psm1') | Should -BeTrue
         Test-Path (Join-Path $outputFolder 'src/InstallWinSCPForBizTalk.Utils.psm1') | Should -BeTrue
         Test-Path (Join-Path $outputFolder 'src/InstallWinSCPForBizTalk.Workflow.psm1') | Should -BeTrue
         Test-Path (Join-Path $outputFolder 'Run-Installer.ps1') | Should -BeTrue

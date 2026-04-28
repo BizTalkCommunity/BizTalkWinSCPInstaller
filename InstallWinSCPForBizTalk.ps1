@@ -92,91 +92,33 @@ Import-Module $utilsModulePath
 $workflowModulePath = Join-Path $PSScriptRoot "src\InstallWinSCPForBizTalk.Workflow.psm1"
 Import-Module $workflowModulePath
 
-# Initialize shared flow flags.
-$Continue = $true;
-$PrerequisiteFailure = $false;
+$initModulePath = Join-Path $PSScriptRoot "src\InstallWinSCPForBizTalk.Init.psm1"
+Import-Module $initModulePath
 
-if ([string]::IsNullOrWhiteSpace($LogFolder)) {
-    $LogFolder = Join-Path (Join-Path (Get-Item Env:TEMP).Value 'BizTalkWinSCPInstaller') 'logs'
-}
+# Script bootstrap: initialize logging, base context, and BizTalk detection args.
+$bootstrap = Initialize-InstallerBootstrap `
+    -NuGetDownloadFolder $nugetDownloadFolder `
+    -ForceInstall ([bool]$ForceInstall) `
+    -LogFolder $LogFolder `
+    -LogLevel $LogLevel `
+    -EnableEventLog ([bool]$EnableEventLog) `
+    -EventLogName $EventLogName `
+    -EventSource $EventSource `
+    -WhatIf ([bool]$WhatIfPreference) `
+    -PSCmdlet $PSCmdlet `
+    -DebugPreferenceValue ([string]$DebugPreference) `
+    -VerbosePreferenceValue ([string]$VerbosePreference)
 
-$effectiveLogLevel = $LogLevel
-if ($DebugPreference -ne 'SilentlyContinue') {
-    $effectiveLogLevel = 'Debug'
-}
-elseif ($VerbosePreference -ne 'SilentlyContinue' -and $effectiveLogLevel -eq 'Info') {
-    $effectiveLogLevel = 'Verbose'
-}
-
-$loggingSession = Initialize-InstallerLogging -LogFolder $LogFolder -LogLevel $effectiveLogLevel -EnableEventLog:$EnableEventLog -EventLogName $EventLogName -EventSource $EventSource
-
-$isAdministrator = Test-IsAdministrator
-Write-InstallerLogEntry -Level 'Info' -Message 'Installer execution started.'
-Write-InstallerLogEntry -Level 'Info' -Message ("Parameters: NuGetDownloadFolder='{0}'; ForceInstall={1}; WhatIf={2}; EventLogEnabled={3}" -f $nugetDownloadFolder, [bool]$ForceInstall, [bool]$WhatIfPreference, [bool]$EnableEventLog)
-# Default WinSCP configuration and package layout notes.
-# - Start with a safe default (BizTalk 2016 RTM -> WinSCP 5.7.7).
-# - Actual WinSCP version is selected later from detected BizTalk CU.
-# - NuGet package root format: WinSCP.<version>\
-# - Typical EXE path: tools\WinSCP.exe (older packages may use content\WinSCP.exe)
-# - Typical DLL paths:
-#     lib\netstandard2.0\WinSCPnet.dll
-#     lib\netstandard\WinSCPnet.dll
-#     lib\net\WinSCPnet.dll
-#     lib\WinSCPnet.dll
-# - This script resolves EXE and DLL paths dynamically from extracted files.
-
-$winSCPVersion = "5.7.7"
-$winSCPexeFile = "WinSCP.exe";
-$winSCPdllFile = "WinSCPnet.dll";
-$hashString = Get-InstallerBannerLine -Name 'Hash'
-$bangString = Get-InstallerBannerLine -Name 'Bang'
-
-# Shared mutable context passed across workflow phases.
-# Each phase updates this hashtable so the main script can remain a linear orchestrator.
-$workflowContext = @{
-    Continue            = $Continue
-    PrerequisiteFailure = $PrerequisiteFailure
-    isAdministrator     = $isAdministrator
-    ForceInstall        = [bool]$ForceInstall
-    WhatIf              = [bool]$WhatIfPreference
-    winSCPexeFile       = $winSCPexeFile
-    winSCPdllFile       = $winSCPdllFile
-    hashString          = $hashString
-    bangString          = $bangString
-    nugetDownloadFolder = $nugetDownloadFolder
-    psCmdlet            = $PSCmdlet
-    InvokeWebRequest    = { param($Uri, $OutFile) Invoke-WebRequest -Uri $Uri -OutFile $OutFile }
-    logFilePath         = $loggingSession.LogFile
-    logLevel            = $loggingSession.LogLevel
-    eventLogEnabled     = [bool]$loggingSession.EventLogEnabled
-    eventLogName        = $loggingSession.EventLogName
-    eventSource         = $loggingSession.EventSource
-}
-
-$bizTalkInstallFolderFromEnv = (Get-Item Env:BTSINSTALLPATH).Value
-$bizTalkInstallFolderFromRegistry = (get-itemPropertyValue 'HKLM:\SOFTWARE\Microsoft\BizTalk Server\3.0' -Name 'InstallPath')
-$bizTalkProductCodeCurrent = (get-itemPropertyValue 'HKLM:\SOFTWARE\Microsoft\BizTalk Server\3.0' -Name 'ProductCodeCurrent')
-$bizTalkProductName = (get-itemPropertyValue 'HKLM:\SOFTWARE\Microsoft\BizTalk Server\3.0' -Name 'ProductName')
-$bizTalkProductVersion = (get-itemPropertyValue 'HKLM:\SOFTWARE\Microsoft\BizTalk Server\3.0' -Name 'ProductVersion')
+$workflowContext = $bootstrap.WorkflowContext
+$bizTalkDetectionArgs = $bootstrap.BizTalkDetectionArgs
 
 # Phase 1: Environment detection and install target selection
-Invoke-BizTalkDetectionPhase -Context $workflowContext -EnvironmentInstallPath $bizTalkInstallFolderFromEnv -RegistryInstallPath $bizTalkInstallFolderFromRegistry -ProductCodeCurrent $bizTalkProductCodeCurrent -ProductName $bizTalkProductName -ProductVersion $bizTalkProductVersion
+Invoke-BizTalkDetectionPhase -Context $workflowContext @bizTalkDetectionArgs
 Invoke-ForceInstallPrerequisitePhase -Context $workflowContext -WhatIf ([bool]$WhatIfPreference)
 Invoke-CuDetectionPhase -Context $workflowContext
 
 # Sync phase 1 outputs into script-scope variables used by later phases.
-$Continue = [bool]$workflowContext.Continue
 $PrerequisiteFailure = [bool]$workflowContext.PrerequisiteFailure
-$bizTalkInstallFolder = $workflowContext.bizTalkInstallFolder
-$bizTalkInstallFolderExists = [bool]$workflowContext.bizTalkInstallFolderExists
-$bizTalkProductCodeCurrent = $workflowContext.bizTalkProductCodeCurrent
-$bizTalkProductName = $workflowContext.bizTalkProductName
-$bizTalkProductVersion = $workflowContext.bizTalkProductVersion
-$BizTalkVersion = $workflowContext.BizTalkVersion
-$winSCPVersion = $workflowContext.winSCPVersion
-$btsKB = $workflowContext.btsKB
-$bizTalkCUVer = $workflowContext.bizTalkCUVer
-$CUFound = [bool]$workflowContext.CUFound
 
 # Phase 2: Existing installation checks and version validation
 Invoke-ExistingWinSCPCheckPhase -Context $workflowContext
@@ -184,15 +126,7 @@ Invoke-NonAdminWarningPhase -Context $workflowContext
 Invoke-VersionValidationPhase -Context $workflowContext
 
 # Sync phase 2 outputs before download/copy operations.
-$Continue = [bool]$workflowContext.Continue
-$winSCPVersion = $workflowContext.winSCPVersion
-$btsWinSCPEXEProductVersionInstalled = $workflowContext.btsWinSCPEXEProductVersionInstalled
-$btsWinSCPDLLProductVersionInstalled = $workflowContext.btsWinSCPDLLProductVersionInstalled
 $btsWinSCPProductInstalledAndCorrect = [bool]$workflowContext.btsWinSCPProductInstalledAndCorrect
-$installExecutionPlan = $workflowContext.installExecutionPlan
-$winSCPProductVersionRequired = $workflowContext.winSCPProductVersionRequired
-$btsTargetWinSCPExe = $workflowContext.btsTargetWinSCPExe
-$btsTargetWinSCPDll = $workflowContext.btsTargetWinSCPDll
 
 # Phase 3: Download preparation, package acquisition, and copy
 Invoke-DownloadFolderPreparationPhase -Context $workflowContext
@@ -204,10 +138,6 @@ Invoke-WinSCPCopyPhase -Context $workflowContext
 $Continue = [bool]$workflowContext.Continue
 $winSCPVersion = $workflowContext.winSCPVersion
 $btsWinSCPProductInstalledAndCorrect = [bool]$workflowContext.btsWinSCPProductInstalledAndCorrect
-$WinSCPEXEDownload = $workflowContext.WinSCPEXEDownload
-$WinSCPDllDownload = $workflowContext.WinSCPDllDownload
-$WinSCPTargetEXEExists = [bool]$workflowContext.WinSCPTargetEXEExists
-$WinSCPDLLTargetExists = [bool]$workflowContext.WinSCPDLLTargetExists
 
 # Final outcome: single standardized success/warning/error path
 $finalOutcome = Get-FinalExecutionOutcome -InstalledSuccessfully $btsWinSCPProductInstalledAndCorrect -WhatIf ([bool]$WhatIfPreference) -PrerequisiteFailure $PrerequisiteFailure -ContinueFlag $Continue
