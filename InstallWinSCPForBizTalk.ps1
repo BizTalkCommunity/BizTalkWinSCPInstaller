@@ -95,7 +95,17 @@ Import-Module $workflowModulePath
 $initModulePath = Join-Path $PSScriptRoot "src\InstallWinSCPForBizTalk.Init.psm1"
 Import-Module $initModulePath
 
-# Script bootstrap: initialize logging, base context, and BizTalk detection args.
+# Read BizTalk registry values at script scope so test mocks can intercept them.
+$bizTalkRegistryPath = 'HKLM:\SOFTWARE\Microsoft\BizTalk Server\3.0'
+$bizTalkDetectionArgs = @{
+    EnvironmentInstallPath = (Get-Item Env:BTSINSTALLPATH).Value
+    RegistryInstallPath    = (Get-ItemPropertyValue $bizTalkRegistryPath -Name 'InstallPath')
+    ProductCodeCurrent     = (Get-ItemPropertyValue $bizTalkRegistryPath -Name 'ProductCodeCurrent')
+    ProductName            = (Get-ItemPropertyValue $bizTalkRegistryPath -Name 'ProductName')
+    ProductVersion         = (Get-ItemPropertyValue $bizTalkRegistryPath -Name 'ProductVersion')
+}
+
+# Script bootstrap: initialize logging, workflow context, and supporting state.
 $bootstrap = Initialize-InstallerBootstrap `
     -NuGetDownloadFolder $nugetDownloadFolder `
     -ForceInstall ([bool]$ForceInstall) `
@@ -110,7 +120,9 @@ $bootstrap = Initialize-InstallerBootstrap `
     -VerbosePreferenceValue ([string]$VerbosePreference)
 
 $workflowContext = $bootstrap.WorkflowContext
-$bizTalkDetectionArgs = $bootstrap.BizTalkDetectionArgs
+
+# Redefine InvokeWebRequest in script scope so test mocks can intercept Invoke-WebRequest.
+$workflowContext['InvokeWebRequest'] = { param($Uri, $OutFile) Invoke-WebRequest -Uri $Uri -OutFile $OutFile }
 
 # Phase 1: Environment detection and install target selection
 Invoke-BizTalkDetectionPhase -Context $workflowContext @bizTalkDetectionArgs

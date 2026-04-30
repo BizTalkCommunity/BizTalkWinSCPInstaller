@@ -93,7 +93,7 @@ function Resolve-WinSCPVersionFromProbe {
     }
 }
 
-function Fetch-NuGetPayload {
+function Save-NuGetPayload {
     param(
         [Parameter(Mandatory = $true)]
         [string]$DestinationFolder,
@@ -116,7 +116,7 @@ function Fetch-NuGetPayload {
         return
     }
 
-    $args = @(
+    $nugetInstallParameters = @(
         'install',
         'WinSCP',
         '-Version', $WinSCPVersion,
@@ -125,7 +125,7 @@ function Fetch-NuGetPayload {
     )
 
     Write-Host "Downloading WinSCP $WinSCPVersion via NuGet..." -ForegroundColor Cyan
-    & $nugetExePath @args
+    & $nugetExePath @nugetInstallParameters
     if ($LASTEXITCODE -ne 0) {
         throw "NuGet package download failed for WinSCP $WinSCPVersion with exit code $LASTEXITCODE."
     }
@@ -203,7 +203,7 @@ if (-not [string]::IsNullOrWhiteSpace($NuGetPayloadFolder)) {
 }
 elseif ($FetchNuGetPayload) {
     $payloadTarget = Join-Path $resolvedOutput 'nuget'
-    Fetch-NuGetPayload -DestinationFolder $payloadTarget -WinSCPVersion $resolvedWinSCPVersion
+    Save-NuGetPayload -DestinationFolder $payloadTarget -WinSCPVersion $resolvedWinSCPVersion
     $payloadIncluded = $true
 }
 

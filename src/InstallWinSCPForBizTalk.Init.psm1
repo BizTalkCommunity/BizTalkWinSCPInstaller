@@ -43,6 +43,7 @@ function Initialize-InstallerBootstrap {
 
     .PARAMETER VerbosePreferenceValue
     Caller verbose preference used to auto-promote effective log level.
+
     #>
     Param(
         [Parameter(Mandatory = $true)]
@@ -117,7 +118,6 @@ function Initialize-InstallerBootstrap {
 
         # Runtime operations
         psCmdlet            = $PSCmdlet
-        InvokeWebRequest    = { param($Uri, $OutFile) Invoke-WebRequest -Uri $Uri -OutFile $OutFile }
 
         # Package/file settings
         nugetDownloadFolder = $NuGetDownloadFolder
@@ -136,19 +136,9 @@ function Initialize-InstallerBootstrap {
         eventSource         = $loggingSession.EventSource
     }
 
-    $bizTalkRegistryPath = 'HKLM:\SOFTWARE\Microsoft\BizTalk Server\3.0'
-    $bizTalkDetectionArgs = @{
-        EnvironmentInstallPath = (Get-Item Env:BTSINSTALLPATH).Value
-        RegistryInstallPath    = (Get-ItemPropertyValue $bizTalkRegistryPath -Name 'InstallPath')
-        ProductCodeCurrent     = (Get-ItemPropertyValue $bizTalkRegistryPath -Name 'ProductCodeCurrent')
-        ProductName            = (Get-ItemPropertyValue $bizTalkRegistryPath -Name 'ProductName')
-        ProductVersion         = (Get-ItemPropertyValue $bizTalkRegistryPath -Name 'ProductVersion')
-    }
-
     return [pscustomobject]@{
-        WorkflowContext    = $workflowContext
-        BizTalkDetectionArgs = $bizTalkDetectionArgs
-        LogFolder          = $LogFolder
+        WorkflowContext = $workflowContext
+        LogFolder       = $LogFolder
     }
 }
 
