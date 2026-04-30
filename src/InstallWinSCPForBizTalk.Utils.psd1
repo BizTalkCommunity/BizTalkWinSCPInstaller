@@ -27,7 +27,10 @@
         'Write-BizTalkNotLocatedError',
         'Write-BizTalkLocatedSuccess',
         'Write-BizTalkCuDetectionStart',
-        'Write-WinSCPNotInstalledNotice'
+        'Write-WinSCPNotInstalledNotice',
+        'Write-WinSCPVersionCheckResults',
+        'Write-WinSCPHashCheckResults',
+        'Write-WinSCPVerificationSnapshot'
     )
     CmdletsToExport = @()
     VariablesToExport = @()

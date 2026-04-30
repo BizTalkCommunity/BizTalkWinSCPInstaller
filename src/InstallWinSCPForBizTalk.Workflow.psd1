@@ -17,7 +17,8 @@
         'Invoke-DownloadFolderPreparationPhase',
         'Invoke-NuGetDownloadPhase',
         'Invoke-WinSCPPackageDownloadPhase',
-        'Invoke-WinSCPCopyPhase'
+        'Invoke-WinSCPCopyPhase',
+        'Invoke-WinSCPVerificationPhase'
     )
     CmdletsToExport = @()
     VariablesToExport = @()

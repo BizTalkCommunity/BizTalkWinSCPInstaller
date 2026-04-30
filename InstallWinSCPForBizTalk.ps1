@@ -77,7 +77,11 @@ Param(
     [Parameter(
         Mandatory = $false
     )]
-    [string]$EventSource = 'BizTalkWinSCPInstaller'
+    [string]$EventSource = 'BizTalkWinSCPInstaller',
+    [Parameter(
+        Mandatory = $false
+    )]
+    [switch]$CheckHash
 )
 # Import modules used by this installer workflow.
 $coreModulePath = Join-Path $PSScriptRoot "src\InstallWinSCPForBizTalk.Core.psm1"
@@ -123,6 +127,7 @@ $workflowContext = $bootstrap.WorkflowContext
 
 # Redefine InvokeWebRequest in script scope so test mocks can intercept Invoke-WebRequest.
 $workflowContext['InvokeWebRequest'] = { param($Uri, $OutFile) Invoke-WebRequest -Uri $Uri -OutFile $OutFile }
+$workflowContext['CheckHash'] = [bool]$CheckHash
 
 # Phase 1: Environment detection and install target selection
 Invoke-BizTalkDetectionPhase -Context $workflowContext @bizTalkDetectionArgs
@@ -145,6 +150,7 @@ Invoke-DownloadFolderPreparationPhase -Context $workflowContext
 Invoke-NuGetDownloadPhase -Context $workflowContext
 Invoke-WinSCPPackageDownloadPhase -Context $workflowContext
 Invoke-WinSCPCopyPhase -Context $workflowContext
+Invoke-WinSCPVerificationPhase -Context $workflowContext
 
 # Sync phase 3 outcomes for final result calculation and reporting.
 $Continue = [bool]$workflowContext.Continue

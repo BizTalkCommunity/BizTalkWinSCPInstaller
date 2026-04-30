@@ -829,3 +829,112 @@ function Write-WinSCPNotInstalledNotice {
     Write-InstallerSuccess 'Microsoft BizTalk Server folder and needs to be installed.'
     Write-InstallerSuccess $bangString
 }
+
+# Emit pass/fail messages for version checks in the post-install verification phase.
+function Write-WinSCPVersionCheckResults {
+    <#
+    .SYNOPSIS
+    Writes pass/fail messaging for installed WinSCP file version checks.
+
+    .PARAMETER Verification
+    Verification result pscustomobject from Get-WinSCPInstallVerification.
+
+    .PARAMETER ExpectedVersion
+    Expected WinSCP version string for messaging context.
+    #>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [pscustomobject]$Verification,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedVersion
+    )
+
+    if ($Verification.ExeVersionMatch) {
+        Write-InstallerSuccess "PASS  WinSCP.exe version $($Verification.ExeActualVersion) matches expected $ExpectedVersion."
+    }
+    else {
+        Write-InstallerError "FAIL  WinSCP.exe version '$($Verification.ExeActualVersion)' does not match expected '$ExpectedVersion'."
+    }
+
+    if ($Verification.DllVersionMatch) {
+        Write-InstallerSuccess "PASS  WinSCPnet.dll version $($Verification.DllActualVersion) matches expected $ExpectedVersion."
+    }
+    else {
+        Write-InstallerError "FAIL  WinSCPnet.dll version '$($Verification.DllActualVersion)' does not match expected '$ExpectedVersion'."
+    }
+}
+
+# Emit pass/fail messages for hash checks in the post-install verification phase.
+function Write-WinSCPHashCheckResults {
+    <#
+    .SYNOPSIS
+    Writes pass/fail messaging for installed WinSCP file hash integrity checks.
+
+    .PARAMETER Verification
+    Verification result pscustomobject from Get-WinSCPInstallVerification.
+    #>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [pscustomobject]$Verification
+    )
+
+    if (-not $Verification.CheckedHash) { return }
+
+    if ($null -ne $Verification.ExeHashMatch) {
+        if ($Verification.ExeHashMatch) {
+            Write-InstallerSuccess 'PASS  WinSCP.exe SHA256 matches source package file.'
+        }
+        else {
+            Write-InstallerError 'FAIL  WinSCP.exe SHA256 does not match source package file. The file may be corrupted.'
+        }
+    }
+    if ($null -ne $Verification.DllHashMatch) {
+        if ($Verification.DllHashMatch) {
+            Write-InstallerSuccess 'PASS  WinSCPnet.dll SHA256 matches source package file.'
+        }
+        else {
+            Write-InstallerError 'FAIL  WinSCPnet.dll SHA256 does not match source package file. The file may be corrupted.'
+        }
+    }
+}
+
+# Emit debug snapshot for post-install verification state.
+function Write-WinSCPVerificationSnapshot {
+    <#
+    .SYNOPSIS
+    Emits debug snapshot state for the post-install WinSCP verification phase.
+
+    .PARAMETER Verification
+    Verification result pscustomobject from Get-WinSCPInstallVerification.
+
+    .PARAMETER ExpectedVersion
+    Expected WinSCP version string.
+
+    .PARAMETER CheckHash
+    Whether hash verification was requested.
+    #>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [pscustomobject]$Verification,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedVersion,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$CheckHash
+    )
+
+    Write-InstallerStateSnapshot -Title 'Post-install WinSCP verification results:' -State ([ordered]@{
+        ExpectedVersion      = $ExpectedVersion
+        CheckHash            = $CheckHash
+        ExeVersionMatch      = $Verification.ExeVersionMatch
+        DllVersionMatch      = $Verification.DllVersionMatch
+        ExeActualVersion     = $Verification.ExeActualVersion
+        DllActualVersion     = $Verification.DllActualVersion
+        CheckedHash          = $Verification.CheckedHash
+        ExeHashMatch         = $Verification.ExeHashMatch
+        DllHashMatch         = $Verification.DllHashMatch
+        VerifiedSuccessfully = $Verification.VerifiedSuccessfully
+    })
+}

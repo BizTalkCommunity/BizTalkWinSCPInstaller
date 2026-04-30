@@ -551,4 +551,65 @@ function Invoke-WinSCPCopyPhase {
     Write-WinSCPCopySnapshot -BizTalkInstallFolder $Context.bizTalkInstallFolder -WinSCPEXEDownload $Context.WinSCPEXEDownload -WinSCPDllDownload $Context.WinSCPDllDownload -WinSCPTargetEXEExists $Context.WinSCPTargetEXEExists -WinSCPDLLTargetExists $Context.WinSCPDLLTargetExists -InstalledAndCorrect $Context.btsWinSCPProductInstalledAndCorrect
 }
 
-Export-ModuleMember -Function Invoke-BizTalkDetectionPhase, Invoke-ForceInstallPrerequisitePhase, Invoke-CuDetectionPhase, Invoke-ExistingWinSCPCheckPhase, Invoke-NonAdminWarningPhase, Invoke-VersionValidationPhase, Invoke-DownloadFolderPreparationPhase, Invoke-NuGetDownloadPhase, Invoke-WinSCPPackageDownloadPhase, Invoke-WinSCPCopyPhase
+# Verify installed WinSCP file versions and optionally check copy integrity.
+function Invoke-WinSCPVerificationPhase {
+    <#
+    .SYNOPSIS
+    Verifies installed WinSCP file versions and optionally checks copy integrity.
+
+    .DESCRIPTION
+    Reads ProductVersion from installed WinSCP files and compares against the
+    expected version. When CheckHash is set in the workflow context, also verifies
+    the SHA256 of each installed file against its source in the download folder.
+    Records verification results in workflow context. Runs whenever
+    btsWinSCPProductInstalledAndCorrect is true — covering both the
+    just-installed and already-correct-skip paths.
+
+    .PARAMETER Context
+    Mutable hashtable used to share installer state across workflow phases.
+    #>
+    Param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Context
+    )
+
+    $Context.verificationResult = $null
+
+    if ($Context.btsWinSCPProductInstalledAndCorrect) {
+        Write-InstallerSectionHeader -Title 'Verifying installed WinSCP files' -LeadingNewLine
+
+        $verificationArgs = @{
+            TargetExePath   = $Context.btsTargetWinSCPExe
+            TargetDllPath   = $Context.btsTargetWinSCPDll
+            ExpectedVersion = $Context.winSCPVersion
+            CheckHash       = [bool]$Context.CheckHash
+        }
+        if ($Context.CheckHash -and $Context.WinSCPEXEDownload) {
+            $verificationArgs['SourceExePath'] = $Context.WinSCPEXEDownload
+        }
+        if ($Context.CheckHash -and $Context.WinSCPDllDownload) {
+            $verificationArgs['SourceDllPath'] = $Context.WinSCPDllDownload
+        }
+
+        $verification = Get-WinSCPInstallVerification @verificationArgs
+        $Context.verificationResult = $verification
+
+        Write-WinSCPVersionCheckResults -Verification $verification -ExpectedVersion $Context.winSCPVersion
+        Write-WinSCPHashCheckResults -Verification $verification
+
+        if ($verification.VerifiedSuccessfully) {
+            Write-InstallerSuccess 'Verification passed.'
+        }
+        else {
+            Write-InstallerBangError -LeadingNewLine -MessageLines @(
+                'Post-install verification failed. One or more installed WinSCP files'
+                'do not match the expected version or failed the integrity check.'
+                'Review the errors above. You may need to rerun with -ForceInstall.'
+            )
+        }
+
+        Write-WinSCPVerificationSnapshot -Verification $verification -ExpectedVersion $Context.winSCPVersion -CheckHash ([bool]$Context.CheckHash)
+    }
+}
+
+Export-ModuleMember -Function Invoke-BizTalkDetectionPhase, Invoke-ForceInstallPrerequisitePhase, Invoke-CuDetectionPhase, Invoke-ExistingWinSCPCheckPhase, Invoke-NonAdminWarningPhase, Invoke-VersionValidationPhase, Invoke-DownloadFolderPreparationPhase, Invoke-NuGetDownloadPhase, Invoke-WinSCPPackageDownloadPhase, Invoke-WinSCPCopyPhase, Invoke-WinSCPVerificationPhase

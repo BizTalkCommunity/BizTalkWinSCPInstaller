@@ -21,7 +21,8 @@
         'Get-PackageReadinessState',
         'Get-FinalExecutionOutcome',
         'Get-BizTalkVersionFromProductCode',
-        'Get-WinSCPVersionForBizTalk'
+        'Get-WinSCPVersionForBizTalk',
+        'Get-WinSCPInstallVerification'
     )
     CmdletsToExport = @()
     VariablesToExport = @()

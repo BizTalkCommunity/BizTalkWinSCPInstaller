@@ -613,6 +613,125 @@ function Get-BizTalkVersionFromProductCode {
     return $null
 }
 
+# Verify installed WinSCP file versions and optionally check copy integrity.
+function Get-WinSCPInstallVerification {
+    <#
+    .SYNOPSIS
+    Verifies installed WinSCP file versions match expected and optionally checks copy integrity.
+
+    .DESCRIPTION
+    Reads ProductVersion from WinSCP.exe and WinSCPnet.dll in the BizTalk install
+    folder and compares them against the expected version. When CheckHash is true
+    and source paths are provided, also computes SHA256 of each installed file and
+    compares it against the SHA256 of the corresponding source file from the NuGet
+    download folder as a copy-integrity check.
+
+    .PARAMETER TargetExePath
+    Full path to WinSCP.exe in the BizTalk installation folder.
+
+    .PARAMETER TargetDllPath
+    Full path to WinSCPnet.dll in the BizTalk installation folder.
+
+    .PARAMETER ExpectedVersion
+    Expected WinSCP version string (e.g. '5.19.2' or '6.3.5').
+
+    .PARAMETER SourceExePath
+    Source WinSCP.exe from the NuGet download folder. Required for hash check.
+
+    .PARAMETER SourceDllPath
+    Source WinSCPnet.dll from the NuGet download folder. Required for hash check.
+
+    .PARAMETER CheckHash
+    When true, computes SHA256 of installed files and compares against source files.
+    Defaults to false. Silently skipped when source paths are absent.
+
+    .OUTPUTS
+    [pscustomobject] with ExeVersionMatch, DllVersionMatch, ExeActualVersion,
+    DllActualVersion, ExeHashMatch, DllHashMatch, CheckedHash, VerifiedSuccessfully.
+    #>
+    [OutputType([pscustomobject])]
+    Param(
+        [Parameter(Mandatory = $true)]
+        [string]$TargetExePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$TargetDllPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedVersion,
+
+        [Parameter(Mandatory = $false)]
+        [string]$SourceExePath = '',
+
+        [Parameter(Mandatory = $false)]
+        [string]$SourceDllPath = '',
+
+        [Parameter(Mandatory = $false)]
+        [bool]$CheckHash = $false
+    )
+
+    $exeVersionMatch = $false
+    $dllVersionMatch = $false
+    $exeActualVersion = 'not found'
+    $dllActualVersion = 'not found'
+
+    if (Test-Path $TargetExePath) {
+        $exeActualVersion = (Get-Item $TargetExePath).VersionInfo.ProductVersion
+        $normalizedRequired = $ExpectedVersion
+        if ($normalizedRequired.Length -gt 2 -and $exeActualVersion.Length -gt 2 -and
+            $normalizedRequired.Substring($normalizedRequired.Length - 2, 2) -ne '.0' -and
+            $exeActualVersion.Substring($exeActualVersion.Length - 2, 2) -eq '.0') {
+            $normalizedRequired = $ExpectedVersion + '.0'
+        }
+        $exeVersionMatch = $exeActualVersion -eq $normalizedRequired
+    }
+
+    if (Test-Path $TargetDllPath) {
+        $dllActualVersion = (Get-Item $TargetDllPath).VersionInfo.ProductVersion
+        $normalizedRequired = $ExpectedVersion
+        if ($normalizedRequired.Length -gt 2 -and $dllActualVersion.Length -gt 2 -and
+            $normalizedRequired.Substring($normalizedRequired.Length - 2, 2) -ne '.0' -and
+            $dllActualVersion.Substring($dllActualVersion.Length - 2, 2) -eq '.0') {
+            $normalizedRequired = $ExpectedVersion + '.0'
+        }
+        $dllVersionMatch = $dllActualVersion -eq $normalizedRequired
+    }
+
+    $exeHashMatch = $null
+    $dllHashMatch = $null
+    $checkedHash = $false
+
+    if ($CheckHash) {
+        if ($SourceExePath -and (Test-Path $SourceExePath) -and (Test-Path $TargetExePath)) {
+            $sourceHash = (Get-FileHash -Path $SourceExePath -Algorithm SHA256).Hash
+            $targetHash = (Get-FileHash -Path $TargetExePath -Algorithm SHA256).Hash
+            $exeHashMatch = $sourceHash -eq $targetHash
+            $checkedHash = $true
+        }
+        if ($SourceDllPath -and (Test-Path $SourceDllPath) -and (Test-Path $TargetDllPath)) {
+            $sourceHash = (Get-FileHash -Path $SourceDllPath -Algorithm SHA256).Hash
+            $targetHash = (Get-FileHash -Path $TargetDllPath -Algorithm SHA256).Hash
+            $dllHashMatch = $sourceHash -eq $targetHash
+            $checkedHash = $true
+        }
+    }
+
+    $hashPassed = -not $CheckHash -or -not $checkedHash -or
+        ($exeHashMatch -ne $false -and $dllHashMatch -ne $false)
+    $verifiedSuccessfully = $exeVersionMatch -and $dllVersionMatch -and $hashPassed
+
+    return [pscustomobject]@{
+        ExeVersionMatch      = $exeVersionMatch
+        DllVersionMatch      = $dllVersionMatch
+        ExeActualVersion     = $exeActualVersion
+        DllActualVersion     = $dllActualVersion
+        ExeHashMatch         = $exeHashMatch
+        DllHashMatch         = $dllHashMatch
+        CheckedHash          = $checkedHash
+        VerifiedSuccessfully = $verifiedSuccessfully
+    }
+}
+
 # Select the correct WinSCP version for a BizTalk installation.
 function Get-WinSCPVersionForBizTalk {
     <#
@@ -748,4 +867,4 @@ function Get-WinSCPVersionForBizTalk {
     }
 }
 
-Export-ModuleMember -Function Resolve-WinSCPPackageLayout, Search-BTSCumulativeUpdate, Get-BTSCumulativeUpdateByDisplayName, Test-IsAdministrator, Get-InstallExecutionPlan, Test-WinSCPVersionString, Resolve-BizTalkInstallFolder, Get-NuGetDownloadPlan, Get-WinSCPPackageDownloadPlan, Invoke-WinSCPTargetInstall, Get-PackageReadinessState, Get-FinalExecutionOutcome, Get-BizTalkVersionFromProductCode, Get-WinSCPVersionForBizTalk
+Export-ModuleMember -Function Resolve-WinSCPPackageLayout, Search-BTSCumulativeUpdate, Get-BTSCumulativeUpdateByDisplayName, Test-IsAdministrator, Get-InstallExecutionPlan, Test-WinSCPVersionString, Resolve-BizTalkInstallFolder, Get-NuGetDownloadPlan, Get-WinSCPPackageDownloadPlan, Invoke-WinSCPTargetInstall, Get-PackageReadinessState, Get-FinalExecutionOutcome, Get-BizTalkVersionFromProductCode, Get-WinSCPVersionForBizTalk, Get-WinSCPInstallVerification
