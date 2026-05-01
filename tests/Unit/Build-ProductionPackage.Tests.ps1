@@ -57,6 +57,10 @@ Describe "Build-ProductionPackage script" {
         $wrapperContent = Get-Content -Path (Join-Path $outputFolder 'Run-Installer.ps1') -Raw
         $expectedLiteral = [regex]::Escape("Join-Path `$PSScriptRoot 'nuget'")
         $wrapperContent | Should -Match $expectedLiteral
+        $wrapperContent | Should -Match ([regex]::Escape('[switch]$CheckHash'))
+        $wrapperContent | Should -Match ([regex]::Escape('-CheckHash:$CheckHash'))
+        $wrapperContent | Should -Match ([regex]::Escape('[switch]$CheckOnly'))
+        $wrapperContent | Should -Match ([regex]::Escape('-CheckOnly:$CheckOnly'))
     }
 
     It "copies probe report into the bundle and records selected version" {

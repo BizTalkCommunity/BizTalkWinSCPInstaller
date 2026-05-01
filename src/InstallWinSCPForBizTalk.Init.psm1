@@ -17,6 +17,10 @@ function Initialize-InstallerBootstrap {
     .PARAMETER ForceInstall
     Indicates whether reinstall should be forced.
 
+    .PARAMETER CheckOnly
+    Indicates whether the run should stop after assessing the current install
+    state, without attempting downloads or copy operations.
+
     .PARAMETER LogFolder
     Folder to write installer logs to.
 
@@ -52,6 +56,9 @@ function Initialize-InstallerBootstrap {
 
         [Parameter(Mandatory = $true)]
         [bool]$ForceInstall,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$CheckOnly,
 
         [Parameter(Mandatory = $false)]
         [string]$LogFolder,
@@ -101,7 +108,7 @@ function Initialize-InstallerBootstrap {
 
     $isAdministrator = Test-IsAdministrator
     Write-InstallerLogEntry -Level 'Info' -Message 'Installer execution started.'
-    Write-InstallerLogEntry -Level 'Info' -Message ("Parameters: NuGetDownloadFolder='{0}'; ForceInstall={1}; WhatIf={2}; EventLogEnabled={3}" -f $NuGetDownloadFolder, $ForceInstall, $WhatIf, $EnableEventLog)
+    Write-InstallerLogEntry -Level 'Info' -Message ("Parameters: NuGetDownloadFolder='{0}'; ForceInstall={1}; CheckOnly={2}; WhatIf={3}; EventLogEnabled={4}" -f $NuGetDownloadFolder, $ForceInstall, $CheckOnly, $WhatIf, $EnableEventLog)
 
     $winSCPexeFile = 'WinSCP.exe'
     $winSCPdllFile = 'WinSCPnet.dll'
@@ -113,6 +120,8 @@ function Initialize-InstallerBootstrap {
         Continue            = $continue
         PrerequisiteFailure = $prerequisiteFailure
         ForceInstall        = $ForceInstall
+        CheckOnly           = $CheckOnly
+        CheckOnlyCompleted  = $false
         WhatIf              = $WhatIf
         isAdministrator     = $isAdministrator
 

@@ -554,39 +554,48 @@ function Get-FinalExecutionOutcome {
         [Parameter(Mandatory = $true)]
         [bool]$PrerequisiteFailure,
         [Parameter(Mandatory = $true)]
-        [bool]$ContinueFlag
+        [bool]$ContinueFlag,
+        [bool]$CheckOnly = $false,
+        [bool]$CheckOnlyCompleted = $false
     )
 
     if ($InstalledSuccessfully) {
         return [pscustomobject]@{
-            Outcome = "Success"
+            Outcome = if ($CheckOnlyCompleted -or $CheckOnly) { 'CheckOnlySuccess' } else { 'Success' }
             IsError = $false
         }
     }
 
-    if ($WhatIf) {
+    if ($WhatIf -and -not $CheckOnlyCompleted) {
         return [pscustomobject]@{
-            Outcome = "DryRun"
+            Outcome = 'DryRun'
             IsError = $false
         }
     }
 
     if ($PrerequisiteFailure) {
         return [pscustomobject]@{
-            Outcome = "PrerequisiteFailure"
+            Outcome = 'PrerequisiteFailure'
             IsError = $true
+        }
+    }
+
+    if ($CheckOnlyCompleted) {
+        return [pscustomobject]@{
+            Outcome = 'UpgradeRequired'
+            IsError = $false
         }
     }
 
     if (-not $ContinueFlag) {
         return [pscustomobject]@{
-            Outcome = "InstallFailure"
+            Outcome = 'InstallFailure'
             IsError = $true
         }
     }
 
     return [pscustomobject]@{
-        Outcome = "Unknown"
+        Outcome = 'Unknown'
         IsError = $true
     }
 }

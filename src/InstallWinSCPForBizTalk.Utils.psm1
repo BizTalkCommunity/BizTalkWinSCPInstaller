@@ -404,6 +404,18 @@ function Write-InstallerFinalOutcome {
             Write-InstallerSuccess "Microsoft BizTalk Server`'s SFTP Adapter will use this version of WinSCP."
             Write-InstallerSuccess $bangString
         }
+        'CheckOnlySuccess' {
+            Write-InstallerDelimitedMessage -MessageLines @(
+                "The installed WinSCP files already match the required version $WinSCPVersion."
+                'No installation changes were required.'
+            ) -Delimiter 'Bang' -Level 'Success' -LeadingNewLine
+        }
+        'UpgradeRequired' {
+            Write-InstallerDelimitedMessage -MessageLines @(
+                "The installed WinSCP files do not satisfy the required version $WinSCPVersion."
+                'An upgrade or reinstall is required, but check-only mode did not make changes.'
+            ) -Delimiter 'Bang' -Level 'Error' -LeadingNewLine
+        }
         'DryRun' {
             Write-InstallerDelimitedMessage -MessageLines @(
                 'The parameter -WhatIf was set and this script executed without making'

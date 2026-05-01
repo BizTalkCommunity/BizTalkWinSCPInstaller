@@ -7,6 +7,45 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased]
+
+---
+
+## [2.1.0] — 2026-04-30
+
+### Added
+
+- Post-install WinSCP verification workflow phase that validates installed
+  `WinSCP.exe` and `WinSCPnet.dll` versions against the expected BizTalk-mapped
+  version and reports explicit PASS/FAIL results.
+- Standalone verification entry point via `Get-WinSCPInstallVerification` for
+  version-only or version-plus-hash checks when operators want to validate an
+  existing installation without rerunning the full workflow.
+- Optional copy-integrity SHA256 verification (`-CheckHash`) that compares
+  installed files with source package files when source paths are available.
+- `tests/Unit/WinSCPVerification.Tests.ps1` with focused unit coverage for
+  version matching, `.0` suffix normalization, missing-file handling,
+  hash-check behavior, and workflow-phase outcomes.
+- ScriptAnalyzer validation gate integrated into local validation
+  (`scripts/Run-Validation.ps1`) and CI execution.
+
+### Changed
+
+- Installer bootstrap logic extracted into
+  `src/InstallWinSCPForBizTalk.Init.psm1` to keep startup concerns isolated and
+  improve script maintainability.
+- Main installer flow now includes an explicit post-copy verification phase,
+  so the standard install path ends with a structured validation pass.
+- CI push trigger now includes `chore/**` branches so housekeeping branches run
+  the same validation pipeline.
+
+### Fixed
+
+- Restored init-module testability by moving registry reads to script scope,
+  allowing deterministic unit mocking without hidden module-state coupling.
+
+---
+
 ## [2.0.0] — 2026-04-26
 
 This is a major release. The v1.0 codebase was a monolithic installer script.
@@ -119,5 +158,7 @@ _(Update BizTalk Server 2020 CU6 and CU5 details)_
 
 No formal git tag was applied to this version at the time.
 
+[Unreleased]: https://github.com/BizTalkCommunity/BizTalkWinSCPInstaller/compare/2.1.0...HEAD
+[2.1.0]: https://github.com/BizTalkCommunity/BizTalkWinSCPInstaller/compare/c752c8e...13baa66
 [2.0.0]: https://github.com/BizTalkCommunity/BizTalkWinSCPInstaller/compare/main...feature/prod-bundle-iteration
 [1.0.0]: https://github.com/BizTalkCommunity/BizTalkWinSCPInstaller/commit/0bc63cf00740a85d09a4c0335f081be49bfd8aed

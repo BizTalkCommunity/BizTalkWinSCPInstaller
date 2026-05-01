@@ -81,7 +81,11 @@ Param(
     [Parameter(
         Mandatory = $false
     )]
-    [switch]$CheckHash
+    [switch]$CheckHash,
+    [Parameter(
+        Mandatory = $false
+    )]
+    [switch]$CheckOnly
 )
 # Import modules used by this installer workflow.
 $coreModulePath = Join-Path $PSScriptRoot "src\InstallWinSCPForBizTalk.Core.psm1"
@@ -113,6 +117,7 @@ $bizTalkDetectionArgs = @{
 $bootstrap = Initialize-InstallerBootstrap `
     -NuGetDownloadFolder $nugetDownloadFolder `
     -ForceInstall ([bool]$ForceInstall) `
+    -CheckOnly ([bool]$CheckOnly) `
     -LogFolder $LogFolder `
     -LogLevel $LogLevel `
     -EnableEventLog ([bool]$EnableEventLog) `
@@ -128,6 +133,7 @@ $workflowContext = $bootstrap.WorkflowContext
 # Redefine InvokeWebRequest in script scope so test mocks can intercept Invoke-WebRequest.
 $workflowContext['InvokeWebRequest'] = { param($Uri, $OutFile) Invoke-WebRequest -Uri $Uri -OutFile $OutFile }
 $workflowContext['CheckHash'] = [bool]$CheckHash
+$workflowContext['CheckOnly'] = [bool]$CheckOnly
 
 # Phase 1: Environment detection and install target selection
 Invoke-BizTalkDetectionPhase -Context $workflowContext @bizTalkDetectionArgs
@@ -145,12 +151,21 @@ Invoke-VersionValidationPhase -Context $workflowContext
 # Sync phase 2 outputs before download/copy operations.
 $btsWinSCPProductInstalledAndCorrect = [bool]$workflowContext.btsWinSCPProductInstalledAndCorrect
 
-# Phase 3: Download preparation, package acquisition, and copy
-Invoke-DownloadFolderPreparationPhase -Context $workflowContext
-Invoke-NuGetDownloadPhase -Context $workflowContext
-Invoke-WinSCPPackageDownloadPhase -Context $workflowContext
-Invoke-WinSCPCopyPhase -Context $workflowContext
-Invoke-WinSCPVerificationPhase -Context $workflowContext
+if ($workflowContext.Continue -and [bool]$workflowContext.CheckOnly) {
+    if ([bool]$workflowContext.CheckHash) {
+        Invoke-DownloadFolderPreparationPhase -Context $workflowContext
+    }
+    Invoke-WinSCPVerificationPhase -Context $workflowContext
+    $workflowContext['CheckOnlyCompleted'] = $true
+}
+else {
+    # Phase 3: Download preparation, package acquisition, and copy
+    Invoke-DownloadFolderPreparationPhase -Context $workflowContext
+    Invoke-NuGetDownloadPhase -Context $workflowContext
+    Invoke-WinSCPPackageDownloadPhase -Context $workflowContext
+    Invoke-WinSCPCopyPhase -Context $workflowContext
+    Invoke-WinSCPVerificationPhase -Context $workflowContext
+}
 
 # Sync phase 3 outcomes for final result calculation and reporting.
 $Continue = [bool]$workflowContext.Continue
@@ -158,7 +173,7 @@ $winSCPVersion = $workflowContext.winSCPVersion
 $btsWinSCPProductInstalledAndCorrect = [bool]$workflowContext.btsWinSCPProductInstalledAndCorrect
 
 # Final outcome: single standardized success/warning/error path
-$finalOutcome = Get-FinalExecutionOutcome -InstalledSuccessfully $btsWinSCPProductInstalledAndCorrect -WhatIf ([bool]$WhatIfPreference) -PrerequisiteFailure $PrerequisiteFailure -ContinueFlag $Continue
+$finalOutcome = Get-FinalExecutionOutcome -InstalledSuccessfully $btsWinSCPProductInstalledAndCorrect -WhatIf ([bool]$WhatIfPreference) -PrerequisiteFailure $PrerequisiteFailure -ContinueFlag $Continue -CheckOnly ([bool]$workflowContext.CheckOnly) -CheckOnlyCompleted ([bool]$workflowContext.CheckOnlyCompleted)
 Write-InstallerFinalOutcome -Outcome $finalOutcome.Outcome -WinSCPVersion $winSCPVersion
 Write-InstallerLogEntry -Level 'Info' -Message ("Installer execution completed with outcome '$($finalOutcome.Outcome)'.")
 Disable-InstallerLogging

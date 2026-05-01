@@ -22,35 +22,49 @@ Describe "Get-FinalExecutionOutcome" {
     }
 
     It "classifies successful install as Success" {
-        $result = Get-FinalExecutionOutcome -InstalledSuccessfully $true -WhatIf $false -PrerequisiteFailure $false -ContinueFlag $true
+        $result = Get-FinalExecutionOutcome -InstalledSuccessfully $true -WhatIf $false -PrerequisiteFailure $false -ContinueFlag $true -CheckOnly $false -CheckOnlyCompleted $false
 
         $result.Outcome | Should -Be "Success"
         $result.IsError | Should -BeFalse
     }
 
+    It "classifies successful check-only execution as CheckOnlySuccess" {
+        $result = Get-FinalExecutionOutcome -InstalledSuccessfully $true -WhatIf $false -PrerequisiteFailure $false -ContinueFlag $true -CheckOnly $true -CheckOnlyCompleted $true
+
+        $result.Outcome | Should -Be "CheckOnlySuccess"
+        $result.IsError | Should -BeFalse
+    }
+
     It "classifies WhatIf execution as DryRun when not installed" {
-        $result = Get-FinalExecutionOutcome -InstalledSuccessfully $false -WhatIf $true -PrerequisiteFailure $false -ContinueFlag $true
+        $result = Get-FinalExecutionOutcome -InstalledSuccessfully $false -WhatIf $true -PrerequisiteFailure $false -ContinueFlag $true -CheckOnly $false -CheckOnlyCompleted $false
 
         $result.Outcome | Should -Be "DryRun"
         $result.IsError | Should -BeFalse
     }
 
     It "classifies prerequisite stop as PrerequisiteFailure" {
-        $result = Get-FinalExecutionOutcome -InstalledSuccessfully $false -WhatIf $false -PrerequisiteFailure $true -ContinueFlag $false
+        $result = Get-FinalExecutionOutcome -InstalledSuccessfully $false -WhatIf $false -PrerequisiteFailure $true -ContinueFlag $false -CheckOnly $false -CheckOnlyCompleted $false
 
         $result.Outcome | Should -Be "PrerequisiteFailure"
         $result.IsError | Should -BeTrue
     }
 
+    It "classifies completed check-only mismatch as UpgradeRequired" {
+        $result = Get-FinalExecutionOutcome -InstalledSuccessfully $false -WhatIf $false -PrerequisiteFailure $false -ContinueFlag $true -CheckOnly $true -CheckOnlyCompleted $true
+
+        $result.Outcome | Should -Be "UpgradeRequired"
+        $result.IsError | Should -BeFalse
+    }
+
     It "classifies non-prerequisite stop as InstallFailure" {
-        $result = Get-FinalExecutionOutcome -InstalledSuccessfully $false -WhatIf $false -PrerequisiteFailure $false -ContinueFlag $false
+        $result = Get-FinalExecutionOutcome -InstalledSuccessfully $false -WhatIf $false -PrerequisiteFailure $false -ContinueFlag $false -CheckOnly $false -CheckOnlyCompleted $false
 
         $result.Outcome | Should -Be "InstallFailure"
         $result.IsError | Should -BeTrue
     }
 
     It "classifies unresolved state as Unknown" {
-        $result = Get-FinalExecutionOutcome -InstalledSuccessfully $false -WhatIf $false -PrerequisiteFailure $false -ContinueFlag $true
+        $result = Get-FinalExecutionOutcome -InstalledSuccessfully $false -WhatIf $false -PrerequisiteFailure $false -ContinueFlag $true -CheckOnly $false -CheckOnlyCompleted $false
 
         $result.Outcome | Should -Be "Unknown"
         $result.IsError | Should -BeTrue

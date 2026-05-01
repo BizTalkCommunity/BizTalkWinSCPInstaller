@@ -165,6 +165,19 @@ Describe "InstallWinSCPForBizTalk script execution" {
         Test-Path (Join-Path $script:bizTalkFolder "WinSCPnet.dll") | Should -BeFalse
     }
 
+    It "supports offline check-only assessment without invoking NuGet download" {
+        Mock -ModuleName InstallWinSCPForBizTalk.Core Get-ItemProperty { @() }
+        Mock Invoke-WebRequest {
+            throw 'Invoke-WebRequest should not be called during check-only assessment.'
+        }
+
+        & $script:installerPath -nugetDownloadFolder $script:nugetFolder -CheckOnly -Confirm:$false
+
+        Test-Path (Join-Path $script:bizTalkFolder "WinSCP.exe") | Should -BeFalse
+        Test-Path (Join-Path $script:bizTalkFolder "WinSCPnet.dll") | Should -BeFalse
+        Assert-MockCalled Invoke-WebRequest -Times 0
+    }
+
     It "supports ForceInstall in non-admin WhatIf mode" {
         $packageRoot = Join-Path $script:nugetFolder "WinSCP.5.15.4"
         $toolsPath = Join-Path $packageRoot "tools"
@@ -215,6 +228,7 @@ Describe "InstallWinSCPForBizTalk script execution" {
         $logContent | Should -Match 'BizTalk WinSCP Installer log'
         $logContent | Should -Match 'Support log file:'
         $logContent | Should -Match 'Parameters: NuGetDownloadFolder='
+        $logContent | Should -Match 'CheckOnly=False'
         $logContent | Should -Match '\[VERBOSE\] The result of the search for the BizTalk Server:'
         $logContent | Should -Match "Installer execution completed with outcome 'DryRun'\."
     }

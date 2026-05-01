@@ -229,6 +229,10 @@ param(
     [Parameter(Mandatory = $false)]
     [switch]$ForceInstall,
     [Parameter(Mandatory = $false)]
+    [switch]$CheckHash,
+    [Parameter(Mandatory = $false)]
+    [switch]$CheckOnly,
+    [Parameter(Mandatory = $false)]
     [string]$LogFolder,
     [Parameter(Mandatory = $false)]
     [ValidateSet('Info', 'Verbose', 'Debug')]
@@ -246,7 +250,7 @@ if (-not (Test-Path $installerPath)) {
     throw "Bundled installer was not found: $installerPath"
 }
 
-& $installerPath -nugetDownloadFolder $NuGetDownloadFolder -ForceInstall:$ForceInstall -LogFolder $LogFolder -LogLevel $LogLevel -EnableEventLog:$EnableEventLog -EventLogName $EventLogName -EventSource $EventSource
+& $installerPath -nugetDownloadFolder $NuGetDownloadFolder -ForceInstall:$ForceInstall -CheckHash:$CheckHash -CheckOnly:$CheckOnly -LogFolder $LogFolder -LogLevel $LogLevel -EnableEventLog:$EnableEventLog -EventLogName $EventLogName -EventSource $EventSource
 '@
 
 $runInstallerScript = $runInstallerScript.Replace('__DEFAULT_NUGET__', $defaultNuGetFolderLiteral)
@@ -275,8 +279,25 @@ Run from an elevated PowerShell session on the BizTalk target machine:
 .\Run-Installer.ps1
 ```
 
+To force post-install SHA256 verification against the bundled payload when a
+local `.\nuget` payload is present:
+
+```powershell
+.\Run-Installer.ps1 -CheckHash
+```
+
+To assess the current WinSCP install without attempting any download or copy:
+
+```powershell
+.\Run-Installer.ps1 -CheckOnly
+```
+
 If this bundle includes an offline payload under .\nuget, the wrapper defaults
-to using that local payload.
+to using that local payload. When `-CheckHash` is supplied, the installer uses
+that same local payload as the source for copy-integrity verification and does
+not require internet access. When `-CheckOnly` is supplied, the installer
+reports whether the current WinSCP files already satisfy the BizTalk-mapped
+required version and whether an upgrade is needed.
 '@
 Set-Content -Path (Join-Path $resolvedOutput 'PRODUCTION-README.md') -Value $bundleReadme -Encoding UTF8
 

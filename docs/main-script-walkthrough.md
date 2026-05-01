@@ -4,14 +4,15 @@ This document explains what [InstallWinSCPForBizTalk.ps1](../InstallWinSCPForBiz
 
 ## What The Main Script Is Doing
 
-1. Defines user inputs and imports the three modules.
+1. Defines user inputs and imports the four modules.
 2. Initializes baseline state and default WinSCP metadata.
 3. Builds one shared state object called `workflowContext` that all phase functions mutate.
 4. Reads BizTalk install/product facts from environment and registry.
 5. Runs Phase 1: detect BizTalk and CU mapping.
 6. Runs Phase 2: check current install and validate version.
 7. Runs Phase 3: prepare folder, acquire package, and copy binaries.
-8. Computes final outcome and prints standardized terminal messaging.
+8. Runs Phase 4: verify installed file versions and optionally verify SHA256 copy integrity.
+9. Computes final outcome and prints standardized terminal messaging.
 
 ## Variable Inventory (Main Script)
 
@@ -19,7 +20,9 @@ This document explains what [InstallWinSCPForBizTalk.ps1](../InstallWinSCPForBiz
 
 - `nugetDownloadFolder`: Folder used for NuGet EXE and extracted WinSCP package.
 - `ForceInstall`: Forces reinstall if required version is already present.
+- `CheckHash`: Enables SHA256 comparison between installed files and source payload files during verification.
 - `coreModulePath`: Path to core functions module.
+- `initModulePath`: Path to bootstrap/initialization module.
 - `utilsModulePath`: Path to output/snapshot helpers module.
 - `workflowModulePath`: Path to phase orchestrator module.
 
@@ -41,6 +44,7 @@ This document explains what [InstallWinSCPForBizTalk.ps1](../InstallWinSCPForBiz
 - `workflowContext.PrerequisiteFailure`: Phase-level prerequisite failure state.
 - `workflowContext.isAdministrator`: Elevation state passed to phases.
 - `workflowContext.ForceInstall`: Bool copy of `ForceInstall` switch.
+- `workflowContext.CheckHash`: Bool copy of `CheckHash` switch.
 - `workflowContext.WhatIf`: Bool copy of `WhatIfPreference`.
 - `workflowContext.winSCPexeFile`: EXE file name for path resolution.
 - `workflowContext.winSCPdllFile`: DLL file name for path resolution.
@@ -95,6 +99,18 @@ This document explains what [InstallWinSCPForBizTalk.ps1](../InstallWinSCPForBiz
 - `WinSCPTargetEXEExists`: Post-copy target EXE existence.
 - `WinSCPDLLTargetExists`: Post-copy target DLL existence.
 
+### Phase 4 synced outputs
+
+- `verificationResult`: Structured verification result from `Get-WinSCPInstallVerification`.
+- `verificationResult.ExeVersionMatch`: Whether installed `WinSCP.exe` matches the expected version.
+- `verificationResult.DllVersionMatch`: Whether installed `WinSCPnet.dll` matches the expected version.
+- `verificationResult.ExeActualVersion`: ProductVersion read from installed `WinSCP.exe`, or `not found`.
+- `verificationResult.DllActualVersion`: ProductVersion read from installed `WinSCPnet.dll`, or `not found`.
+- `verificationResult.CheckedHash`: Whether SHA256 comparison was actually performed.
+- `verificationResult.ExeHashMatch`: SHA256 match result for `WinSCP.exe` when checked.
+- `verificationResult.DllHashMatch`: SHA256 match result for `WinSCPnet.dll` when checked.
+- `verificationResult.VerifiedSuccessfully`: Final aggregate pass/fail result.
+
 ### Finalization
 
 - `finalOutcome`: Structured terminal classification (`Success`, `DryRun`, `PrerequisiteFailure`, `InstallFailure`/`Unknown`).
@@ -104,6 +120,8 @@ This document explains what [InstallWinSCPForBizTalk.ps1](../InstallWinSCPForBiz
 - The script is intentionally a linear orchestrator; real logic lives in modules.
 - The most important object is `workflowContext`. If you track that object, script flow becomes straightforward.
 - Variable sync blocks after each phase are checkpoints that mirror `workflowContext` into script scope for readability and final reporting.
+- The verification phase runs after copy and also on the already-installed path when the required WinSCP version is present, so the main script doubles as a post-install verification entry point.
+- The lowest-level standalone verification entry point is `Get-WinSCPInstallVerification` in the core module. Use that when you already know the target paths and expected version and do not need the full installer workflow.
 
 ## Readability Cleanup Status
 
